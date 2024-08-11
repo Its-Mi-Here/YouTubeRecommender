@@ -6,11 +6,21 @@ import os
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
-
+from fastapi.middleware.cors import CORSMiddleware
 from youtube_helper import get_liked_videos, get_subscriptions, get_user_info
 from summarize import summarize
 
 app = FastAPI()
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Disable OAuthlib's HTTPS verification when running locally.
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -64,12 +74,13 @@ async def get_youtube_data():
     with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
         json.dump(subscriptions, json_file, indent=4)
 
-@app.post("/summarize")
+@app.get("/summarize")
 async def retrive_summarize_from_doc():
-    with open(f'youtube_subscriptions_nelTb50v4w2Ls9pzlnRVFARAq7A.json', 'r') as f:
+    with open(f'youtube_subscriptions_RuuXzTIr0OoDqI4S0RU6n4FqKEM.json', 'r') as f:
         subscriptions = json.load(f)
     summary = summarize(subscriptions)
 
-    with open(f"summary_nelTb50v4w2Ls9pzlnRVFARAq7A.txt", 'w') as json_file:
+    with open(f"summary_RuuXzTIr0OoDqI4S0RU6n4FqKEM.txt", 'w') as json_file:
         json_file.write(summary)
-    return
+    
+    return summary

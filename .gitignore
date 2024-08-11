@@ -166,3 +166,6 @@ cython_debug/
 
 backend/*.json
 backend/summary*.txt
+
+frontend/my-app/node_modules/
+frontend/my-app/package-lock.json
