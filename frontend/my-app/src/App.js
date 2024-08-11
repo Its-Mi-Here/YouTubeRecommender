@@ -36,7 +36,7 @@ function App() {
       </div>
       {response && (
         <div className="response-container">
-          <h2>Response:</h2>
+          <h2>Summary of Interests:</h2>
           <p>{response}</p>
         </div>
       )}
