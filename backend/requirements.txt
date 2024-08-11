@@ -1,0 +1,4 @@
+fastapi
+google_auth_oauthlib
+googleapiclient
+uvicorn
