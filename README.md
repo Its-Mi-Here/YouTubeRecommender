@@ -5,8 +5,10 @@ A custom YouTube Recommender and Visualizer for better insight into one's intere
 ## Features
 1. **Summarization** - of User's interests based on their Youtube subscriptions
 <!-- ![Summary](./assets/Summary_img.png) -->
-<img src="./assets/Summary_img.png" alt="Summary" style="width: 80%; margin-left: 40px" />
-
+<!-- <img src="./assets/Summary_img.png" alt="Summary" style="width: 80%; margin-left: 40px" /> -->
+<div style="text-align: center;">
+  <img src="./assets/Summary_img.png" alt="Summary" style="width: 80%;" />
+</div>
 
 2. **Visualization** - of interest profile of users 
 <!-- ![Interests visualization](./assets/pie_chart.png) -->
@@ -14,13 +16,17 @@ A custom YouTube Recommender and Visualizer for better insight into one's intere
   <img src="./assets/pie_chart.png" alt="Image 1" style="width: 42%; margin-right: 10px;" />
   <img src="./assets/bar_chart.png" alt="Image 2" style="width: 42%; margin-left: 10px;" />
 </div> -->
-<img src="./assets/pie_chart.png" alt="pie chart" style="height: auto; width: 50%; margin-left: 40px" />
-<img src="./assets/bar_chart.png" alt="bar chart" style="height: auto; width: 50%; margin-left: 40px" />
+<div style="text-align: center;">
+    <img src="./assets/pie_chart.png" alt="pie chart" style="height: auto; width: 70%;"/>
+    <img src="./assets/bar_chart.png" alt="bar chart" style="height: auto; width: 70%;"/>
+</div>
 
 
 3. **Recommendations** - based on user Group & interests
 <!-- ![Recommendations](./assets/Recom.png) -->
-<img src="./assets/Recom.png" alt="Recommendations" style="width: 50%; height: auto; margin-left: 40px" />
+<div style="text-align: center;">
+    <img src="./assets/Recom.png" alt="Recommendations" style="width: 50%; height: auto;" />
+</div>
 
 
 ## Tech stack
