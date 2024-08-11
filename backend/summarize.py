@@ -12,7 +12,7 @@ def summarize(subscriptions):
     model="gpt-3.5-turbo",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": f"Given a dictionary of Youtube channels & their desciprition, generate a short summary of interests of this user. Dictionary: {texts}"},
+        {"role": "user", "content": f"Given a dictionary of my Youtube subscriptions & their descipritions, generate a short summary of my interests. Don't simply list all the genres, be analytic and determine my interests in life. Dictionary: {texts}"},
       ]
     )
 
