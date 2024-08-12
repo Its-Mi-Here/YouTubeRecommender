@@ -1,5 +1,4 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends
 
 import json
 import os
@@ -10,8 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from youtube_helper import get_liked_videos, get_subscriptions, get_user_info
 from summarize import summarize
 
-app = FastAPI()
+from sqlalchemy.orm import Session
 
+import models
+from database import SessionLocal, engine
+
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,31 +27,21 @@ app.add_middleware(
 )
 
 
+# Dependency
+def get_db():
+    db = SessionLocal()
+    # yield db
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 # Disable OAuthlib's HTTPS verification when running locally.
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-CREDS = None
-
-@app.get("/auth")
-def google_oauth():
-    scopes = [
-    "https://www.googleapis.com/auth/youtube.readonly",
-    "https://www.googleapis.com/auth/youtube.force-ssl"
-    ]
-    
-    client_secrets_file = "client_secret_860774433001-ojb91ftpisr9gb8jj6thtcvo9qdl53t9.apps.googleusercontent.com.json"
-
-    # Get credentials and create an API client
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        client_secrets_file, scopes, redirect_uri='http://localhost:8080/')
-    
-    # Run the local server and authenticate
-    credentials = flow.run_local_server(port=8080)
-    CREDS = credentials
-    # print(f"CREDS in oauth: {CREDS}")
-    # return credentials
 
 @app.get("/get_data")
-async def get_youtube_data():
+async def get_youtube_data(db: Session = Depends(get_db)):
     api_service_name = "youtube"
     api_version = "v3"
     scopes = [
@@ -71,8 +66,23 @@ async def get_youtube_data():
     subscriptions = get_subscriptions(youtube, max_results=50000)
     liked_videos = get_liked_videos(youtube, max_results=50000)
 
-    with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
-        json.dump(subscriptions, json_file, indent=4)
+
+    for item in subscriptions:
+        channel_name = item["title"]
+        channel_id = item["channelId"]
+        
+        db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
+        if db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first():
+            continue
+        db.add(db_subscription)
+
+        db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
+        db.add(db_user)
+
+    db.commit()
+    
+    # with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
+    #     json.dump(subscriptions, json_file, indent=4)
 
 @app.get("/summarize")
 async def retrive_summarize_from_doc():

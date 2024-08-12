@@ -169,3 +169,8 @@ backend/summary*.txt
 
 frontend/my-app/node_modules/
 frontend/my-app/package-lock.json
+frontend/node_modules
+frontend/package-lock.json
+
+backend/sql_app.db
+backend/main_with_db.py
