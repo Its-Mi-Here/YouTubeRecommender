@@ -17,7 +17,6 @@
   100% { background-position: 0% 50%; }
 }
 
-
 .app-title {
   font-size: 2rem;
   color: #333;
@@ -41,8 +40,41 @@
   transition: background-color 0.3s ease;
 }
 
-.custom-button:hover {
+.custom-button:disabled {
+  background-color: #007bff80;
+  cursor: not-allowed;
+}
+
+.custom-button:hover:enabled {
   background-color: #0056b3;
+}
+
+.loading-bar-container {
+  width: 100%;
+  max-width: 300px;
+  background-color: #ddd;
+  border-radius: 5px;
+  margin-top: 20px;
+}
+
+.loading-bar {
+  height: 10px;
+  width: 100%;
+  background-color: #007bff;
+  animation: loadingAnimation 2s linear infinite;
+  border-radius: 5px;
+}
+
+@keyframes loadingAnimation {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .response-container {
