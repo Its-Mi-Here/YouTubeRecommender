@@ -34,6 +34,19 @@ function App() {
     }
   };
 
+  const handleVisualize = async () => {
+    setLoading(true);
+    setMessage(''); // Clear any previous message
+    try {
+      const res = await axios.get('http://127.0.0.1:8000/visualize');
+      setResponse(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="app-container">
       <h1 className="app-title">YouTube Data Collector</h1>
@@ -43,6 +56,9 @@ function App() {
         </button>
         <button className="custom-button" onClick={handleSummarize} disabled={loading}>
           Summarize
+        </button>
+        <button className="custom-button" onClick={handleVisualize} disabled={loading}>
+          Visualize
         </button>
       </div>
       {loading && (

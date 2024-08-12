@@ -8,6 +8,7 @@ import googleapiclient.errors
 from fastapi.middleware.cors import CORSMiddleware
 from youtube_helper import get_liked_videos, get_subscriptions, get_user_info
 from summarize import summarize
+from visualize import get_categories
 
 from sqlalchemy.orm import Session
 
@@ -94,3 +95,15 @@ async def retrive_summarize_from_doc():
         json_file.write(summary)
     
     return summary
+
+@app.get("/visualize")
+async def retrive_summarize_from_doc():
+    with open(f'youtube_subscriptions_RuuXzTIr0OoDqI4S0RU6n4FqKEM.json', 'r') as f:
+        subscriptions = json.load(f)
+    # summary = summarize(subscriptions)
+    categories = get_categories(subscriptions)
+
+    # with open(f"summary_RuuXzTIr0OoDqI4S0RU6n4FqKEM.txt", 'w') as json_file:
+    #     json_file.write(categories)
+    
+    return categories
