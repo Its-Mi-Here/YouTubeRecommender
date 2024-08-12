@@ -39,7 +39,7 @@ def get_categories(subscriptions):
     except:
         continue
 
-  return categories
+  return categories_dict
     
 #   print(f"categories: {categories}")
 

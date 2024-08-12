@@ -95,3 +95,26 @@
   color: #333;
   font-size: 1.1rem;
 }
+
+/* Updated styles for the chart */
+.chart-container {
+  width: 100%;
+  max-width: 400px; /* Reduced max width from 600px to 400px */
+  margin: 20px auto;
+  background-color: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 300px !important; /* Added max height to ensure it's smaller */
+}
+
+.chart-container h2 {
+  color: #007bff;
+  margin-bottom: 20px;
+}
+
