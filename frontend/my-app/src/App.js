@@ -18,7 +18,8 @@ function App() {
     try {
       const res = await axios.get('http://127.0.0.1:8000/get_data');
       setResponse(res.data);
-      setMessage('Data successfully read!'); 
+      setMessage(res.data.message);
+      // setMessage('Data successfully read!'); 
     } catch (err) {
       console.error(err);
     } finally {

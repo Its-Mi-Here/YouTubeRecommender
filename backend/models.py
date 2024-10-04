@@ -1,7 +1,14 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from database import Base
+
+class Onlyuser(Base):
+    __tablename__ = "onlyusers"
+    user_id = Column(String, primary_key=True)
+    last_accessed = Column(TIMESTAMP)
+    name = Column(String)
+    last_downloaded = Column(TIMESTAMP)
 
 class User(Base):
     __tablename__ = "users"

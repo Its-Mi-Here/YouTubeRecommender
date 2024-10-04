@@ -63,6 +63,26 @@ async def get_youtube_data(db: Session = Depends(get_db)):
     youtube = googleapiclient.discovery.build(api_service_name, api_version, credentials=credentials)
 
     user_info = get_user_info(youtube)
+    print(f"user_info: {user_info}")
+    etag = user_info.get('etag')
+    
+    try:
+        name=user_info.get('items')[0].get('snippet').get('title')
+    except:
+        name = f'Anon_{etag}'
+
+
+    if db.query(models.Onlyuser).filter(models.Onlyuser.user_id == user_info.get('etag')).first():
+        # name=user_info.get('items')[0].get('snippet').get('title')
+        print(f"Welcome Back {name}!")
+        return {"message": f"Welcome Back {name}!"}
+
+    else:
+        print(f"Welcome {name}!")
+        db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), name=name)
+        db.add(db_onlyuser)
+        db.commit()
+
 
     subscriptions = get_subscriptions(youtube, max_results=50000)
     liked_videos = get_liked_videos(youtube, max_results=50000)
@@ -81,6 +101,7 @@ async def get_youtube_data(db: Session = Depends(get_db)):
         db.add(db_user)
 
     db.commit()
+    return {"message": f"Hello {name}! Your data was saved to the database."}
     
     # with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
     #     json.dump(subscriptions, json_file, indent=4)

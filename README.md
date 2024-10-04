@@ -44,3 +44,9 @@ A custom YouTube Recommender and Visualizer for better insight into one's intere
     a. For all members in group - get channels
     b. For all channels, get videos & store
     c. Run ML recommender & show the recommendations
+
+
+## Start
+env\Scripts\activate
+cd backend && uvicorn main:app --reload
+cd frontend/my-app && npm start
