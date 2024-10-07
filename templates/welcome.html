@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Home Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h4>Welcome, {{user['family_name']}}</h4>
+        <div class="img-box">
+          <img class="img" src="{{user['picture']}}" />
+        </div>
+      </div>
+      <a href="/get_youtube_data" class="google-btn">
+        <div class="google-icon"></div>
+        <span class="btn-text">GET YOUTUBE DATA</span>
+      </a>
+      <a href="/logout" class="google-btn">
+        <div class="google-icon"></div>
+        <span class="btn-text">Log out</span>
+      </a>
+    </div>
+  </body>
+</html>
