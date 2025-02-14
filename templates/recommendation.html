@@ -7,7 +7,7 @@
         /* General Styles */
         body {
             font-family: Arial, sans-serif;
-            background-color: #f9f9f9;
+            background-color: #0e0d0d;
             margin: 0;
             padding: 20px;
         }
@@ -18,8 +18,8 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px 20px;
-            background-color: #fff;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #7e7070;
+            box-shadow: 0 4px 8px rgba(253, 146, 146, 0.1);
             border-radius: 8px;
         }
 
@@ -39,7 +39,7 @@
         .recommendations-container {
             max-width: 800px;
             margin: 20px auto;
-            background: #fff;
+            background: #8d8989;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -71,7 +71,7 @@
         .video-info a {
             font-size: 16px;
             font-weight: bold;
-            color: #0073e6;
+            color: #f0f2f5;
             text-decoration: none;
         }
 
@@ -81,7 +81,7 @@
 
         .video-info span {
             font-size: 14px;
-            color: #555;
+            color: #e2dddd;
         }
 
         /* Logout Button */
@@ -107,7 +107,7 @@
     <div class="header">
         <h2>Video Recommendations</h2>
         <div class="user-info">
-            <span>Welcome, {{ user['family_name'] }}</span>
+            <span> for {{ user['given_name'] }}</span>
             <img src="{{ user['picture'] }}" alt="User Picture">
         </div>
     </div>

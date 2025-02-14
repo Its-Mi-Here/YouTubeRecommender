@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subscription Categories Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: rgb(40, 44, 44);
+            color: #a8a7a7;
+            margin: 20px;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            background-color: rgb(30, 34, 34);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        h2, h3 {
+            color: #e6cf69; /* Gold color for headings */
+        }
+        canvas {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #8fd3f3ce; /* White background for charts */
+            border-radius: 10px;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>YouTube Subscription Categories for {{ user['given_name'] }}</h2>
+
+    <div class="container">
+        <h3>Pie Chart - Category Distribution</h3>
+        <canvas id="pieChart"></canvas>
+    </div>
+
+    <div class="container">
+        <h3>Bar Chart - Interest Levels</h3>
+        <canvas id="barChart"></canvas>
+    </div>
+
+    <script>
+        // Fetch categories data from Jinja context
+        const categoriesData = {{ categories | tojson }};
+        const labels = Object.keys(categoriesData);
+        const values = Object.values(categoriesData);
+
+        function renderPieChart() {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Category Distribution',
+                        data: values,
+                        backgroundColor: [
+                            '#e74c3c', /* Red */
+                            '#3498db', /* Blue */
+                            '#f1c40f', /* Yellow */
+                            '#2ecc71', /* Green */
+                            '#9b59b6', /* Purple */
+                            '#e67e22'  /* Orange */
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#ffffff"
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBarChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Interest Levels',
+                        data: values,
+                        backgroundColor: '#1a8abece',
+                        borderColor: '#ffffff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: "#ffffff"
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: "#ffffff"
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#ffffff"
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderPieChart();
+        renderBarChart();
+    </script>
+</body>
+</html>

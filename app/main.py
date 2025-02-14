@@ -12,6 +12,8 @@ import googleapiclient.errors
 from app.youtube_helper import get_user_info, get_subscriptions
 import json
 from app.summarize import summarize
+from app.visualize import get_categories
+
 
 import app.models as models
 from app.database import SessionLocal, engine
@@ -236,6 +238,35 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
     )
 
 
+@app.get("/visualize")
+async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
+
+    print(f"request: {request.session['user']}")
+    etag = request.session.get('etag')
+    print(f"Request: {request.session}, etag: {etag}")
+
+    if not etag:
+        # if db.query(models.Onlyuser).filter(models.Onlyuser.global_user == request.session['user']['email']):
+            # etag = db.query(models.Onlyuser)
+        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        # etag = user_from_db.
+        print(f"user_from_db: {type(etag)}")
+        if not etag:
+            return {"error": "User not authenticated"}
+    
+    etag = etag[0]
+    with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
+        subscriptions = json.load(f)
+    # categories = get_categories(subscriptions[:7])
+    categories = {'Education': 4, 'News & Politics': 1, 'Entertainment': 2, 'Gaming': 3, 'History & Geography': 1, 'Comedy': 2, 'Howto & Style': 1, 'Science & Technology': 1}
+    user = request.session.get('user')
+    # return categories
+    return templates.TemplateResponse(
+        name='visualize.html',
+        context={'request': request, 'user': user, 'categories': categories}
+    )
+
+
 
 def get_random_subscriptions(db: Session, limit: int = 5):
     return db.query(models.Subscriptions).order_by(func.random()).limit(limit).all()
@@ -258,12 +289,12 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
             return {"error": "User not authenticated"}
     
     etag = etag[0]
-    random_subscriptions = get_random_subscriptions(db, limit=5)
+    random_subscriptions = get_random_subscriptions(db, limit=2)
     titles = []
     for sub in random_subscriptions:
         # print(sub.title, sub.id, sub.description)
         # titles.append(sub.title)
-        info = get_most_popular_videos(sub.id, sub.title, max_results=2)
+        info = get_most_popular_videos(sub.id, sub.title, max_results=1)
         titles.extend(info)
     
     print(f"titles: {titles}")
