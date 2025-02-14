@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -13,10 +13,24 @@ from app.youtube_helper import get_user_info, get_subscriptions
 import json
 from app.summarize import summarize
 
+import app.models as models
+from app.database import SessionLocal, engine
+from sqlalchemy.orm import Session
+
+
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="add any string...")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+def get_db():
+    db = SessionLocal()
+    # yield db
+    try:
+        yield db
+    finally:
+        db.close()
 
 oauth = OAuth()
 oauth.register(
@@ -86,7 +100,7 @@ def logout(request: Request):
 
 
 @app.get('/get_youtube_data')
-def get_youtube_data(request: Request):
+def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
     # print(request.session)
     # user = request.session.get('user')
     # # print(user)
@@ -124,7 +138,42 @@ def get_youtube_data(request: Request):
     print(f"ETAG: {etag} & name: {name}")
     print(f"request.session: {request.session}")
 
+    # subscriptions = get_subscriptions(youtube, max_results=50000)
+    if db.query(models.Onlyuser).filter(models.Onlyuser.user_id == user_info.get('etag')).first():
+        # name=user_info.get('items')[0].get('snippet').get('title')
+        print(f"Welcome Back {name}!")
+        # return {"message": f"Welcome Back {name}!"}
+        user = request.session.get('user')
+        return templates.TemplateResponse(
+            name='get_data.html',
+            context={'request': request, 'user': user}
+        )
+
+    else:
+        print(f"Welcome {name}!")
+        db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), name=name)
+        db.add(db_onlyuser)
+        db.commit()
+
+
     subscriptions = get_subscriptions(youtube, max_results=50000)
+    # liked_videos = get_liked_videos(youtube, max_results=50000)
+
+
+    for item in subscriptions:
+        channel_name = item["title"]
+        channel_id = item["channelId"]
+        
+        db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
+        if db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first():
+            continue
+        db.add(db_subscription)
+
+        db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
+        db.add(db_user)
+
+    db.commit()
+    # return {"message": f"Hello {name}! Your data was saved to the database."}
 
 
     # return {"message": f"Hello {name}! Your data was saved to the database."}
