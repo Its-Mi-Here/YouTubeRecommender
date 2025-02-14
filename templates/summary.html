@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
   <head>
     <title>Home Page</title>
@@ -19,6 +19,109 @@
         </div>
       </div>
       
+      <a href="/logout" class="google-btn">
+        <div class="google-icon"></div>
+        <span class="btn-text">Log out</span>
+      </a>
+    </div>
+  </body>
+</html> -->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Home Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+    <style>
+      /* General Styles */
+      body {
+        background-color: #1e1e2f; /* Dark background */
+        color: #ffffff; /* White text */
+        font-family: 'Arial', sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      .container {
+        background: #2a2a40; /* Slightly lighter container background */
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        width: 400px;
+        max-width: 90%;
+      }
+
+      .header {
+        margin-bottom: 20px;
+      }
+
+      .header h4 {
+        font-size: 24px;
+        color: #6c63ff; /* Purple accent color */
+        margin-bottom: 10px;
+      }
+
+      .summary {
+        background: #3a3a5a; /* Darker background for summary */
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+        font-size: 16px;
+        line-height: 1.5;
+        color: #e0e0e0; /* Light gray text */
+      }
+
+      .google-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #6c63ff; /* Purple button */
+        color: #ffffff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: bold;
+        margin-top: 20px;
+        transition: background 0.3s ease;
+      }
+
+      .google-btn:hover {
+        background-color: #574fdb; /* Darker purple on hover */
+      }
+
+      .google-icon {
+        background: url('{{ url_for("static", path="icons/YT.png") }}') no-repeat;
+        background-size: contain;
+        width: 24px;
+        height: 24px;
+        margin-right: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- User Welcome Section -->
+      <div class="header">
+        <h4>{{user['given_name']}}'s Summary</h4>
+        <div class="img-box">
+          <img class="img" src="{{user['picture']}}" alt="Profile Picture" />
+        </div>
+      </div>
+
+      <!-- Summary Section -->
+      <div class="header">
+        <!-- <h4>Your Summary</h4> -->
+        <div class="summary">
+          {{summary}}
+        </div>
+      </div>
+
+      <!-- Logout Button -->
       <a href="/logout" class="google-btn">
         <div class="google-icon"></div>
         <span class="btn-text">Log out</span>

@@ -197,13 +197,20 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
     )
 
 @app.get("/summarize")
-async def retrive_summarize_from_doc(request: Request):
+async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
     etag = request.session.get('etag')
     print(f"Request: {request.session}, etag: {etag}")
 
     if not etag:
-        return {"error": "User not authenticated"}
+        # if db.query(models.Onlyuser).filter(models.Onlyuser.global_user == request.session['user']['email']):
+            # etag = db.query(models.Onlyuser)
+        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        # etag = user_from_db.
+        print(f"user_from_db: {type(etag)}")
+        if not etag:
+            return {"error": "User not authenticated"}
 
+    etag = etag[0]
     with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
         subscriptions = json.load(f)
     
@@ -250,6 +257,7 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
         if not etag:
             return {"error": "User not authenticated"}
     
+    etag = etag[0]
     random_subscriptions = get_random_subscriptions(db, limit=5)
     titles = []
     for sub in random_subscriptions:
@@ -259,9 +267,6 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
         titles.extend(info)
     
     print(f"titles: {titles}")
-    # print(f"len: {len(titles)}")
-    # for title, link, channel in titles:
-    #     print(f"title: {title}, link: {link}, chhanel: {channel}")
     
     user = request.session.get('user')
 
