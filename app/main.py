@@ -4,7 +4,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth, OAuthError
-from .config import CLIENT_ID, CLIENT_SECRET
+from .config import CLIENT_ID, CLIENT_SECRET, API_KEY
 from fastapi.staticfiles import StaticFiles
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
@@ -16,6 +16,8 @@ from app.summarize import summarize
 import app.models as models
 from app.database import SessionLocal, engine
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.expression import func
+import random
 
 
 models.Base.metadata.create_all(bind=engine)
@@ -223,6 +225,94 @@ async def retrive_summarize_from_doc(request: Request):
         name='summary.html',
         context={'request': request, 'user': user, 'summary': summary}
     )
+
+
+
+def get_random_subscriptions(db: Session, limit: int = 5):
+    return db.query(models.Subscriptions).order_by(func.random()).limit(limit).all()
+
+
+@app.get("/get_recommendations")
+async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
+    etag = request.session.get('etag')
+    print(f"Request: {request.session}, etag: {etag}")
+
+    if not etag:
+        return {"error": "User not authenticated"}
+    
+    random_subscriptions = get_random_subscriptions(db, limit=5)
+    titles = []
+    for sub in random_subscriptions:
+        # print(sub.title, sub.id, sub.description)
+        # titles.append(sub.title)
+        info = get_most_popular_videos(sub.id, sub.title, max_results=2)
+        titles.extend(info)
+    
+    print(f"titles: {titles}")
+    # print(f"len: {len(titles)}")
+    # for title, link, channel in titles:
+    #     print(f"title: {title}, link: {link}, chhanel: {channel}")
+    
+    user = request.session.get('user')
+
+    numbered_titles = [(i+1, title, link, channel, thumbnail) for i, (title, link, channel, thumbnail) in enumerate(titles)]
+
+    return templates.TemplateResponse(
+        name='recommendation.html',
+        context={'request': request, 'user': user, 'recommendations': numbered_titles}
+    )
+
+
+def get_channel_uploads_playlist(channel_id):
+    youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
+
+    # Get the uploads playlist ID
+    request = youtube.channels().list(
+        part="contentDetails",
+        id=channel_id
+    )
+    response = request.execute()
+
+    uploads_playlist_id = response['items'][0]['contentDetails']['relatedPlaylists']['uploads']
+    return uploads_playlist_id
+
+
+def get_most_popular_videos(channel_id, channel_name, max_results=20):
+    youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
+
+    # Get video IDs from the uploads playlist
+    uploads_playlist_id = get_channel_uploads_playlist(channel_id)
+    
+    request = youtube.playlistItems().list(
+        part="snippet",
+        playlistId=uploads_playlist_id,
+        maxResults=50  # Fetch more to ensure sorting is effective
+    )
+    response = request.execute()
+
+    video_ids = [item['snippet']['resourceId']['videoId'] for item in response['items']]
+    
+    # Fetch video statistics
+    video_request = youtube.videos().list(
+        part="statistics,snippet",
+        id=",".join(video_ids)
+    )
+    video_response = video_request.execute()
+
+    # Sort videos by view count
+    videos = sorted(video_response['items'], key=lambda v: int(v['statistics'].get('viewCount', 0)), reverse=True)
+
+    # Print top videos
+    recommendations = []
+    for i, video in enumerate(videos[:max_results]):
+        title = video['snippet']['title']
+        views = video['statistics'].get('viewCount', 0)
+        video_url = f"https://www.youtube.com/watch?v={video['id']}"
+        thumbnail_url = video['snippet']['thumbnails']['medium']['url']
+        # print(f"{i+1}. {title} - {views} views\n   {video_url}")
+        recommendations.append( (title, video_url, channel_name, thumbnail_url) )
+
+    return recommendations
 
 
 # @app.get("/summary")
