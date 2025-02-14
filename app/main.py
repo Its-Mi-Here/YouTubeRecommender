@@ -153,7 +153,9 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
 
     else:
         print(f"Welcome {name}!")
-        db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), name=name)
+        db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), 
+                                    global_user=request.session['user']['email'] , 
+                                    name=name)
         db.add(db_onlyuser)
         db.commit()
 
@@ -234,11 +236,19 @@ def get_random_subscriptions(db: Session, limit: int = 5):
 
 @app.get("/get_recommendations")
 async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
+
+    print(f"request: {request.session['user']}")
     etag = request.session.get('etag')
     print(f"Request: {request.session}, etag: {etag}")
 
     if not etag:
-        return {"error": "User not authenticated"}
+        # if db.query(models.Onlyuser).filter(models.Onlyuser.global_user == request.session['user']['email']):
+            # etag = db.query(models.Onlyuser)
+        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        # etag = user_from_db.
+        print(f"user_from_db: {type(etag)}")
+        if not etag:
+            return {"error": "User not authenticated"}
     
     random_subscriptions = get_random_subscriptions(db, limit=5)
     titles = []

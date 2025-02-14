@@ -1,20 +1,74 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Home Page</title>
+    <title>SoFrec - Login</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+    <style>
+      body {
+        background-color: #181a1b;
+        color: #ffffff;
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .container {
+        background: #222629;
+        padding: 40px;
+        border-radius: 8px;
+        box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.1);
+        text-align: center;
+        width: 350px;
+      }
+      .header img {
+        width: 80px;
+        height: 80px;
+        margin-right: 10px;
+      }
+      .header h4 {
+        font-size: 24px;
+        margin-bottom: 20px;
+        color: #1e90ff;
+      }
+      .google-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #ffffff;
+        color: #333;
+        padding: 1px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: bold;
+        margin-top: 20px;
+        transition: background 0.3s;
+      }
+      .google-btn:hover {
+        background-color: #dddddd;
+      }
+      .google-icon {
+        background: url('{{ url_for('static', path='icons/google-icon.png') }}') no-repeat;
+        background-size: contain;
+        width: 30px;
+        height: 30px;
+        margin-right: 10px;
+      }
+    </style>
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <h4>FastAPI with Google Oauth</h4>
-        <div class="img-box">
-          <img class="img" src="{{ url_for('static', path='icons/avatar.png') }}" />
-        </div>
+        <img src="{{ url_for('static', path='icons/logo.svg') }}" alt="Logo">
+        <h4>SoFrec</h4>
       </div>
+      <a>Welcome to Social Recommender and Visualizer!</a>
+      <a>Get YouTube Recommendations from your friends circle and your actual long-term interests.</a>
       <a href="/login" class="google-btn">
         <div class="google-icon"></div>
-        <span class="btn-text">Signin with Gmail</span>
+        <span class="btn-text">Log in with Google</span>
       </a>
     </div>
   </body>

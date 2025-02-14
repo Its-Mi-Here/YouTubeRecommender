@@ -8,8 +8,9 @@ from app.database import Base
 class Onlyuser(Base):
     __tablename__ = "onlyusers"
     user_id = Column(String, primary_key=True)
-    last_accessed = Column(DateTime, default=_dt.datetime.now)
+    global_user = Column(String)
     name = Column(String)
+    last_accessed = Column(DateTime, default=_dt.datetime.now)
     last_downloaded = Column(DateTime, default=_dt.datetime.now)
 
 class User(Base):
