@@ -7,9 +7,9 @@
   <body>
     <div class="container">
       <div class="header">
-        <h4>Welcome, {{user['family_name']}}</h4>
+        <h4>Welcome, {{user['given_name']}} {{user['family_name']}}</h4>
         <div class="img-box">
-          <img class="img" src="{{user['picture']}}" />
+          <img class="img" src="{{ user['picture']}}" />
         </div>
       </div>
       <a href="/get_youtube_data" class="google-btn">

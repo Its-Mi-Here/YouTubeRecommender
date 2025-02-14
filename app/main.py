@@ -134,6 +134,9 @@ def get_youtube_data(request: Request):
         json.dump(subscriptions, json_file, indent=4)
     
     user = request.session.get('user')
+    print(f"user: {user}")
+    print(f"surname: {user['family_name']}")
+    # print(f"surname: {user['family_name']}")
     
     return templates.TemplateResponse(
         name='get_data.html',
@@ -150,8 +153,12 @@ async def retrive_summarize_from_doc(request: Request):
 
     with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
         subscriptions = json.load(f)
-    # summary = summarize(subscriptions)
-    summary = "This is your summary from the NLP module. You like Tech videos, Pets and all."
+    
+    try:
+        summary = summarize(subscriptions[:50])
+    except:
+        summary = "There was something wrong with summarization"
+    # summary = "This is your summary from the NLP module. You like Tech videos, Pets and all."
 
     with open(f"summary_{etag}.txt", 'w') as json_file:
         json_file.write(summary)
