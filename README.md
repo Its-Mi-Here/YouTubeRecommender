@@ -1,38 +1,40 @@
 # YouTube Recommender
 
-A custom YouTube Recommender and Visualizer for better insight into one's interests.
+A YouTube video Recommender system that recommends you videos on the behalf of your friends and yourself!
+
+My reasons of creating this -
+
+1. The best recommendations are word-of-mouth from your personal connections - friends.
+2. 70% of What Viewers Watch is Recommended by the YouTube Algorithm. The main objective of this algorithm is engagement. If you are like me and enjoy 3 hour technical lectures, old-school comedy shows and don't want to get stuck watching shorts, this platform is for you.
+3. The YouTube Algorithm heavily considers your recent activity and trending videos, instead of your long-term interests. But, knowledge and (some) entertainment is Ageless!
+4. It uses collaborative filtering that recommends you what random like-minded people liked and watched. Here I am proposing a Social-network based filtering that serves you videos as if your friend is texting your "Hey, watch this!". Hence the name "He bagh!," which is Marathi for "watch this".
 
 ## Features
-1. **Summarization** - of User's interests based on their Youtube subscriptions
-<!-- ![Summary](./assets/Summary_img.png) -->
-<!-- <img src="./assets/Summary_img.png" alt="Summary" style="width: 80%; margin-left: 40px" /> -->
-<div style="text-align: center;">
-  <img src="./assets/Summary_img.png" alt="Summary" style="width: 80%;" />
-</div>
-
-2. **Visualization** - of interest profile of users 
-<!-- ![Interests visualization](./assets/pie_chart.png) -->
-<!-- <div style="display: flex; justify-content: space-around;">
-  <img src="./assets/pie_chart.png" alt="Image 1" style="width: 42%; margin-right: 10px;" />
-  <img src="./assets/bar_chart.png" alt="Image 2" style="width: 42%; margin-left: 10px;" />
-</div> -->
-<div style="text-align: center;">
-    <img src="./assets/pie_chart.png" alt="pie chart" style="height: auto; width: 70%;"/>
-    <img src="./assets/bar_chart.png" alt="bar chart" style="height: auto; width: 70%;"/>
-</div>
-
-
-3. **Recommendations** - based on user Group & interests
+1. **Recommendations** - based on user Group & interests
 <!-- ![Recommendations](./assets/Recom.png) -->
 <div style="text-align: center;">
-    <img src="./assets/Recommendations.jpg" alt="Recommendations" style="width: 50%; height: auto;" />
+    <img src="./assets/2_HomePage_recommendations.jpg" alt="Recommendations" style="width: 50%; height: auto;" />
+</div>
+
+
+2. **User Analysis** - what you like to watch
+<!-- ![Recommendations](./assets/Recom.png) -->
+<div style="text-align: center;">
+    <img src="./assets/3_Analysis_page.jpg" alt="Analysis" style="width: 50%; height: auto;" />
+</div>
+
+
+2. **Seamless Google Login**
+<!-- ![Recommendations](./assets/Recom.png) -->
+<div style="text-align: center;">
+    <img src="./assets/1_login_page.jpg" alt="Login" style="width: 50%; height: auto;" />
 </div>
 
 
 ## Tech stack
-1. Backend - FastAPI, YouTube Data API
-2. Machine Learning - OpenAI GPT, NLTK, PyTorch 
-3. Frontend - React, HTML, CSS
+1. Backend - FastAPI, YouTube Data API, SQLlite DB, JSON
+2. Machine Learning - OpenAI GPT API, BART, PyTorch, NLP (NLTK, TFIDF) 
+3. Frontend - HTML, CSS, JavaScript
 
 
 ## API Endpoints
@@ -59,6 +61,7 @@ git clone https://github.com/Its-Mi-Here/YouTubeRecommender.git
 python -m venv env
 (windows) env\Scripts\activate
 (linux) source env/bin/activate
+pip install -r requirements.txt
 ```
 
 3. Start the server
