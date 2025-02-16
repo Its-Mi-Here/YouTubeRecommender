@@ -13,21 +13,21 @@ My reasons of creating this -
 1. **Recommendations** - based on user Group & interests
 <!-- ![Recommendations](./assets/Recom.png) -->
 <div style="text-align: center;">
-    <img src="./assets/2_HomePage_recommendations.jpg" alt="Recommendations" style="width: 50%; height: auto;" />
+    <img src="./assets/2_HomePage_recommendations.jpg" alt="Recommendations" style="width: 80%; height: auto;" />
 </div>
 
 
 2. **User Analysis** - what you like to watch
 <!-- ![Recommendations](./assets/Recom.png) -->
 <div style="text-align: center;">
-    <img src="./assets/3_Analysis_page.jpg" alt="Analysis" style="width: 50%; height: auto;" />
+    <img src="./assets/3_Analysis_page.jpg" alt="Analysis" style="width: 80%; height: auto;" />
 </div>
 
 
 2. **Seamless Google Login**
 <!-- ![Recommendations](./assets/Recom.png) -->
 <div style="text-align: center;">
-    <img src="./assets/1_login_page.jpg" alt="Login" style="width: 50%; height: auto;" />
+    <img src="./assets/1_login_page.jpg" alt="Login" style="width: 40%; height: auto;" />
 </div>
 
 
