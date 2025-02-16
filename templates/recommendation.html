@@ -1,55 +1,89 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Recommendations based on your friends' likes</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Recommendations</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
     <style>
         /* General Styles */
         body {
-            font-family: Arial, sans-serif;
-            background-color: #0e0d0d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        /* User Header (Top Right) */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            background-color: #7e7070;
-            box-shadow: 0 4px 8px rgba(253, 146, 146, 0.1);
-            border-radius: 8px;
-        }
-
-        .user-info {
+        /* Profile Picture Container */
+        .profile-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
             display: flex;
             align-items: center;
+            z-index: 100;
         }
 
-        .user-info img {
-            width: 40px;
-            height: 40px;
+        .profile-pic {
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
-            margin-left: 10px;
+            border: 2px solid #ffffff;
+            transition: transform 0.3s;
+        }
+
+        .profile-pic:hover {
+            transform: scale(1.1);
+        }
+
+        /* Dropdown Menu */
+        .dropdown {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 0;
+            background-color: #333333;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            width: 150px;
+        }
+
+        .dropdown a {
+            color: #ffffff;
+            text-decoration: none;
+            display: block;
+            padding: 12px 15px;
+            transition: background-color 0.3s;
+        }
+
+        .dropdown a:hover {
+            background-color: #555555;
+        }
+
+        .show {
+            display: block;
         }
 
         /* Recommendations List */
         .recommendations-container {
-            max-width: 800px;
-            margin: 20px auto;
-            background: #8d8989;
+            max-width: 900px;
+            margin: 80px auto 30px auto;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            background-color: #1e1e1e;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
         }
 
         .recommendation-item {
             display: flex;
             align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+            margin: 20px 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 15px;
         }
 
         .recommendation-item:last-child {
@@ -57,58 +91,63 @@
         }
 
         .thumbnail {
-            width: 100px;
-            height: auto;
-            border-radius: 8px;
-            margin-right: 15px;
+            width: 150px;
+            height: 90px;
+            border-radius: 10px;
+            margin-right: 20px;
+            transition: transform 0.3s;
+        }
+
+        .thumbnail:hover {
+            transform: scale(1.05);
         }
 
         .video-info {
             display: flex;
             flex-direction: column;
+            justify-content: center;
         }
 
         .video-info a {
-            font-size: 16px;
-            font-weight: bold;
-            color: #f0f2f5;
+            color: #00aaff;
             text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            transition: color 0.3s;
         }
 
         .video-info a:hover {
+            color: #66c2ff;
             text-decoration: underline;
         }
 
         .video-info span {
             font-size: 14px;
-            color: #e2dddd;
+            color: #bbbbbb;
         }
 
-        /* Logout Button */
-        .google-btn {
-            display: inline-block;
-            background: #db4437;
-            color: #fff;
-            padding: 8px 12px;
-            border-radius: 5px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: 0.3s;
-        }
+        /* Responsive Adjustments */
+        @media (max-width: 600px) {
+            .thumbnail {
+                width: 100px;
+                height: 60px;
+            }
 
-        .google-btn:hover {
-            background: #c1351d;
+            .video-info a {
+                font-size: 16px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Section (User Info on Right) -->
-    <div class="header">
-        <h2>Video Recommendations</h2>
-        <div class="user-info">
-            <span> for {{ user['given_name'] }}</span>
-            <img src="{{ user['picture'] }}" alt="User Picture">
+    <!-- Profile Picture with Dropdown -->
+    <div class="profile-container" onclick="toggleDropdown()">
+        <img src="{{ user['picture'] }}" alt="Profile Picture" class="profile-pic">
+        <div class="dropdown" id="profile-dropdown">
+            <a> {{ user['given_name'] }} {{user['family_name']}} </a>
+            <a href="/logout">Log Out</a>
         </div>
     </div>
 
@@ -116,19 +155,33 @@
     <div class="recommendations-container">
         {% for index, title, link, channel, thumbnail in recommendations %}
             <div class="recommendation-item">
-                <img class="thumbnail" src="{{ thumbnail }}" alt="Video Thumbnail">
+                <a href="{{ link }}" target="_blank">
+                    <img class="thumbnail" src="{{ thumbnail }}" alt="Video Thumbnail">
+                </a>
                 <div class="video-info">
-                    <a href="{{ link }}" target="_blank">{{ index }}. {{ title }}</a>
+                    <a href="{{ link }}" target="_blank">{{ title }}</a>
                     <span>Channel: {{ channel }}</span>
                 </div>
             </div>
         {% endfor %}
     </div>
 
-    <!-- Logout Button -->
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="/logout" class="google-btn">Log out</a>
-    </div>
+    <!-- JavaScript for Dropdown Toggle -->
+    <script>
+        function toggleDropdown() {
+            const dropdown = document.getElementById('profile-dropdown');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close the dropdown if clicked outside
+        window.addEventListener('click', function (event) {
+            const profileContainer = document.querySelector('.profile-container');
+            const dropdown = document.getElementById('profile-dropdown');
+            if (!profileContainer.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+    </script>
 
 </body>
 </html>
