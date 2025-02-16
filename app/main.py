@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
-from app.youtube_helper import get_user_info, get_subscriptions
+from app.youtube_helper import get_user_info, get_subscriptions, get_most_popular_videos
 import json
 from app.summarize import summarize
 from app.visualize import get_categories
@@ -255,17 +255,52 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
             return {"error": "User not authenticated"}
     
     etag = etag[0]
-    with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
-        subscriptions = json.load(f)
-    # categories = get_categories(subscriptions[:7])
-    categories = {'Education': 4, 'News & Politics': 1, 'Entertainment': 2, 'Gaming': 3, 'History & Geography': 1, 'Comedy': 2, 'Howto & Style': 1, 'Science & Technology': 1}
+    
+    categories_arr = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id==etag)
+    categories = dict(categories_arr)
+
+    if len(categories) == 0:    
+        with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
+            subscriptions = json.load(f)
+        categories = get_categories(subscriptions)
+        with open('categories.json', 'w') as json_file:
+            json.dump(categories, json_file, indent=4)
+        
+
+        total_channels = sum(categories.values())
+        for category, num in categories.items():
+            # for item in subscriptions:
+            db_preference = models.ComputedPreferences(user_id=etag, preference=category, weight=num/total_channels)
+            # db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
+            # if db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first():
+            #     continue
+            db.merge(db_preference)
+
+            # db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
+            # db.add(db_user)
+        db.commit()
+
+    top_n = 8
+    # Sort the categories by value in descending order and get the top N categories
+    sorted_categories = sorted(categories.items(), key=lambda item: item[1], reverse=True)
+
+    # Separate top N categories
+    top_categories = dict(sorted_categories[:top_n])
+
+    # Calculate the sum of the remaining categories
+    others_value = sum(value for _, value in sorted_categories[top_n:])
+
+    # Add 'Others' category if there are remaining categories
+    if others_value > 0:
+        top_categories['Others'] = others_value
+
+    # categories = {'Education': 4, 'News & Politics': 1, 'Entertainment': 2, 'Gaming': 3, 'History & Geography': 1, 'Comedy': 2, 'Howto & Style': 1, 'Science & Technology': 1}
     user = request.session.get('user')
     # return categories
     return templates.TemplateResponse(
         name='visualize.html',
-        context={'request': request, 'user': user, 'categories': categories}
+        context={'request': request, 'user': user, 'categories': top_categories}
     )
-
 
 
 def get_random_subscriptions(db: Session, limit: int = 5):
@@ -274,7 +309,6 @@ def get_random_subscriptions(db: Session, limit: int = 5):
 
 @app.get("/get_recommendations")
 async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
-
     print(f"request: {request.session['user']}")
     etag = request.session.get('etag')
     print(f"Request: {request.session}, etag: {etag}")
@@ -309,64 +343,15 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
     )
 
 
-def get_channel_uploads_playlist(channel_id):
-    youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
+def get_channel_recommendation(request: Request, db: Session = Depends(get_db)):
+    user = request.session['user']
+    etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+    etag = etag[0]
 
-    # Get the uploads playlist ID
-    request = youtube.channels().list(
-        part="contentDetails",
-        id=channel_id
-    )
-    response = request.execute()
+    # preferences = db.query(models.Preferences.preference).filter(models.Preferences.user_id == etag).all()
+    computed_preferences = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id == etag).all()
 
-    uploads_playlist_id = response['items'][0]['contentDetails']['relatedPlaylists']['uploads']
-    return uploads_playlist_id
+    # user_categories_list = list(preferences)
+    computed_categories = dict(computed_preferences)
 
 
-def get_most_popular_videos(channel_id, channel_name, max_results=20):
-    youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
-
-    # Get video IDs from the uploads playlist
-    uploads_playlist_id = get_channel_uploads_playlist(channel_id)
-    
-    request = youtube.playlistItems().list(
-        part="snippet",
-        playlistId=uploads_playlist_id,
-        maxResults=50  # Fetch more to ensure sorting is effective
-    )
-    response = request.execute()
-
-    video_ids = [item['snippet']['resourceId']['videoId'] for item in response['items']]
-    
-    # Fetch video statistics
-    video_request = youtube.videos().list(
-        part="statistics,snippet",
-        id=",".join(video_ids)
-    )
-    video_response = video_request.execute()
-
-    # Sort videos by view count
-    videos = sorted(video_response['items'], key=lambda v: int(v['statistics'].get('viewCount', 0)), reverse=True)
-
-    # Print top videos
-    recommendations = []
-    for i, video in enumerate(videos[:max_results]):
-        title = video['snippet']['title']
-        views = video['statistics'].get('viewCount', 0)
-        video_url = f"https://www.youtube.com/watch?v={video['id']}"
-        thumbnail_url = video['snippet']['thumbnails']['medium']['url']
-        # print(f"{i+1}. {title} - {views} views\n   {video_url}")
-        recommendations.append( (title, video_url, channel_name, thumbnail_url) )
-
-    return recommendations
-
-
-# @app.get("/summary")
-# async def return_summary(request: Request):
-#     etag = request.session.get('etag')
-#     print(f"Request: {request.session}, etag: {etag}")
-
-#     if not etag:
-#         return {"error": "User not authenticated"}
-    
-#     return templates.TemplateResp
