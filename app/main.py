@@ -327,7 +327,7 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
             return {"error": "User not authenticated"}
     
     etag = etag[0]
-    random_subscriptions = get_random_subscriptions(db, limit=2)
+    random_subscriptions = get_random_subscriptions(db, limit=8)
     titles = []
     for sub in random_subscriptions:
         # print(sub.title, sub.id, sub.description)

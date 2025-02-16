@@ -14,6 +14,100 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            display: flex;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 60px;
+            height: 100vh;
+            background-color: #1c1c1c;
+            transition: width 0.3s;
+            padding-top: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+            position: fixed;
+            left: 0;
+            top: 0;
+            overflow-x: hidden;
+            z-index: 100;
+        }
+
+        .sidebar.expanded {
+            width: 200px;
+        }
+
+        .sidebar:hover {
+            width: 200px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            padding-top: 60px; /* Add padding to shift down the buttons */
+        }
+
+        .sidebar li {
+            padding: 20px;
+            text-align: center;
+            transition: background 0.3s;
+        }
+
+        .sidebar li:hover {
+            background-color: #333;
+        }
+
+        .sidebar a {
+            color: #fff;
+            text-decoration: none;
+            display: block;
+            white-space: nowrap;
+        }
+
+        .sidebar a span {
+            visibility: hidden; /* Hide text when sidebar is collapsed */
+        }
+
+        .sidebar.expanded a span,
+        .sidebar:hover a span {
+            visibility: visible; /* Show text when sidebar is expanded or hovered */
+        }
+
+        .sidebar:hover a,
+        .sidebar.expanded a {
+            text-align: left;
+            padding-left: 20px;
+        }
+
+        /* Toggle Button Styles */
+        .toggle-btn {
+            position: absolute;
+            top: 20px; /* Changed from bottom: 20px to top: 20px */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        .toggle-btn:hover {
+            background-color: #555;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            margin-left: 60px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        .sidebar.expanded + .main-content {
+            margin-left: 200px;
         }
 
         /* Profile Picture Container */
@@ -49,7 +143,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
             overflow: hidden;
-            width: 150px;
+            width: 180px;
         }
 
         .dropdown a {
@@ -57,7 +151,13 @@
             text-decoration: none;
             display: block;
             padding: 12px 15px;
+            border-bottom: 1px solid #444;
             transition: background-color 0.3s;
+            text-align: center;
+        }
+
+        .dropdown a:last-child {
+            border-bottom: none;
         }
 
         .dropdown a:hover {
@@ -137,37 +237,74 @@
             .video-info a {
                 font-size: 16px;
             }
+
+            .sidebar {
+                width: 50px;
+            }
+
+            .sidebar.expanded {
+                width: 150px;
+            }
+
+            .sidebar:hover {
+                width: 150px;
+            }
+
+            .main-content {
+                margin-left: 50px;
+            }
+
+            .sidebar.expanded + .main-content {
+                margin-left: 150px;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- Profile Picture with Dropdown -->
-    <div class="profile-container" onclick="toggleDropdown()">
-        <img src="{{ user['picture'] }}" alt="Profile Picture" class="profile-pic">
-        <div class="dropdown" id="profile-dropdown">
-            <a> {{ user['given_name'] }} {{user['family_name']}} </a>
-            <a href="/logout">Log Out</a>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar" id="sidebar">
+        <ul>
+            <li><a href="/get_youtube_data">📥 <span>Get your data</span></a></li>
+            <li><a href="/summarize">📝 <span>Summarize</span></a></li>
+            <li><a href="/visualize">📊 <span>Visualize</span></a></li>
+            <li><a href="/logout">🚪 <span>Logout</span></a></li>
+        </ul>
+        <!-- Toggle Button Moved to Top -->
+        <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+
+        <!-- Profile Picture with Dropdown -->
+        <div class="profile-container" onclick="toggleDropdown()">
+            <img src="{{ user['picture'] }}" alt="Profile Picture" class="profile-pic">
+            <div class="dropdown" id="profile-dropdown">
+                <a>{{ user['given_name'] }} {{ user['family_name'] }}</a>
+                <a href="/logout">Log Out</a>
+            </div>
+        </div>
+
+        <!-- Recommendations List -->
+        <div class="recommendations-container">
+            {% for index, title, link, channel, thumbnail in recommendations %}
+                <div class="recommendation-item">
+                    <a href="{{ link }}" target="_blank">
+                        <img class="thumbnail" src="{{ thumbnail }}" alt="Video Thumbnail">
+                    </a>
+                    <div class="video-info">
+                        <a href="{{ link }}" target="_blank">{{ title }}</a>
+                        <span>Channel: {{ channel }}</span>
+                    </div>
+                </div>
+            {% endfor %}
         </div>
     </div>
 
-    <!-- Recommendations List -->
-    <div class="recommendations-container">
-        {% for index, title, link, channel, thumbnail in recommendations %}
-            <div class="recommendation-item">
-                <a href="{{ link }}" target="_blank">
-                    <img class="thumbnail" src="{{ thumbnail }}" alt="Video Thumbnail">
-                </a>
-                <div class="video-info">
-                    <a href="{{ link }}" target="_blank">{{ title }}</a>
-                    <span>Channel: {{ channel }}</span>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-
-    <!-- JavaScript for Dropdown Toggle -->
+    <!-- JavaScript for Dropdown Toggle and Sidebar Toggle -->
     <script>
+        // Toggle Dropdown
         function toggleDropdown() {
             const dropdown = document.getElementById('profile-dropdown');
             dropdown.classList.toggle('show');
@@ -181,6 +318,12 @@
                 dropdown.classList.remove('show');
             }
         });
+
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('expanded');
+        }
     </script>
 
 </body>
