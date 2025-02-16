@@ -9,39 +9,11 @@ import ast
 from tqdm import tqdm
 
 categories = [
-    "Film & Animation",
-    "Autos & Vehicles",
-    "Music",
-    "Pets & Animals",
-    "Sports",
-    "Short Movies",
-    "Travel & Events",
-    "Gaming",
-    "Videoblogging",
-    "People & Blogs",
-    "Comedy",
-    "Entertainment",
-    "News & Politics",
-    "Howto & Style",
-    "Education",
-    "Science & Technology",
-    "Movies",
-    "Anime/Animation",
-    "Action/Adventure",
-    "Classics",
-    "Comedy",
-    "Documentary",
-    "Drama",
-    "Family",
-    "Foreign",
-    "Horror",
-    "Sci-Fi/Fantasy",
-    "Thriller",
-    "Shorts",
-    "Shows",
-    "Trailers",
-    "History & Geography",
-    "Economics & Finance"
+    "Film & Animation", "Autos & Vehicles", "Music", "Pets & Animals", "Sports", "Short Movies",
+    "Travel & Events", "Gaming", "Videoblogging", "People & Blogs", "Comedy", "Entertainment",
+    "News & Politics", "Howto & Style", "Education", "Science & Technology", "Movies", "Anime/Animation",
+    "Action/Adventure", "Classics", "Comedy", "Documentary", "Drama", "Family", "Foreign", "Horror",
+    "Sci-Fi/Fantasy", "Thriller", "Shorts", "Shows", "Trailers", "History & Geography", "Economics & Finance"
 ]
 
 def get_categories(subscriptions):
@@ -50,30 +22,49 @@ def get_categories(subscriptions):
 
   
   for text in tqdm(texts, desc="Subscriptions classified:"):
+    
+    prompt = f"""
+    Classify the following YouTube channel description into one of the following categories:
+
+    Categories: {', '.join(categories)}
+
+    Description: "{text}"
+
+    Respond only with 2 category names separated by a comma.
+    """
+
     response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
+    # model="gpt-3.5-turbo",
+    model="gpt-4o",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": f"Classify the following text into 5 or less these categories {categories}. Return only the python list of categories. Description: {text}"},
+        {"role": "user", "content": f"{prompt}"},
       ]
     )
     # categories.update(response.choices[0].text.strip().split(', '))
     # print(f"content: {response.choices[0].message.content}")
     print(response.choices[0].message.content)
-    try:
-        arr = ast.literal_eval(response.choices[0].message.content)      
-        for category in arr:
-            if category in ["Other", "other"]:
-                continue
-            if category in categories_dict.keys():
-                categories_dict[category] += 1
-            else:
-                categories_dict[category] = 1
-        print(categories_dict)
+    category = response.choices[0].message.content
+    category_1 = category.split(",")[0]
+    category_2 = category.split(",")[1]
+    if category_2 and category_2[0] == " ":
+        category_2 = category_2[1:]
 
+    try:
+        if category_1 and category_1 not in ["other", "Other"]:
+            if category_1 in categories_dict.keys():
+                categories_dict[category_1] += 1
+            else:
+                categories_dict[category_1] = 1
+               
+        if category_2 and category_2 not in ["other", "Other"]:
+            if category_2 in categories_dict.keys():
+                categories_dict[category_2] += 1
+            else:
+                categories_dict[category_2] = 1
+               
     except:
         continue
-
   return categories_dict
     
 #   print(f"categories: {categories}")

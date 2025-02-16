@@ -27,6 +27,8 @@ class Subscriptions(Base):
     id = Column(String, primary_key=True)
     title = Column(String, index=True)
     description = Column(String, index=True)
+    category_1_GPT = Column(String)
+    category_2_GPT = Column(String)
 
     # owner = relationship("User", back_populates="items")
 class Videos(Base):

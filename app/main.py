@@ -19,6 +19,8 @@ import app.models as models
 from app.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
+from sqlalchemy import delete
+
 import random
 
 
@@ -254,20 +256,22 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
         if not etag:
             return {"error": "User not authenticated"}
     
-    etag = etag[0]
+    etag = etag[0]  
     
     categories_arr = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id==etag)
     categories = dict(categories_arr)
 
+    # categories = {}
     if len(categories) == 0:    
         with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
             subscriptions = json.load(f)
         categories = get_categories(subscriptions)
-        with open('categories.json', 'w') as json_file:
-            json.dump(categories, json_file, indent=4)
-        
-
+        # print(f"categories: {categories}")
+        # with open('categories.json', 'w') as json_file:
+        #     json.dump(categories, json_file, indent=4)
         total_channels = sum(categories.values())
+        db.execute(delete(models.ComputedPreferences).where(models.ComputedPreferences.user_id == etag))
+        db.commit()
         for category, num in categories.items():
             # for item in subscriptions:
             db_preference = models.ComputedPreferences(user_id=etag, preference=category, weight=num/total_channels)
