@@ -22,7 +22,8 @@ from sqlalchemy.sql.expression import func
 from sqlalchemy import delete
 
 import random
-
+import os
+import numpy as np
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -95,7 +96,8 @@ async def auth(request: Request):
     user = token.get('userinfo')
     if user:
         request.session['user'] = dict(user)
-    return RedirectResponse('welcome')
+    # return RedirectResponse('welcome')
+    return RedirectResponse('get_recommendations')
 
 
 @app.get('/logout')
@@ -200,8 +202,8 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
         context={'request': request, 'user': user}
     )
 
-@app.get("/summarize")
-async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
+# @app.get("/summarize")
+def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
     etag = request.session.get('etag')
     print(f"Request: {request.session}, etag: {etag}")
 
@@ -234,14 +236,15 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
     if not user:
         return RedirectResponse('/')
     
-    return templates.TemplateResponse(
-        name='summary.html',
-        context={'request': request, 'user': user, 'summary': summary}
-    )
+    # return templates.TemplateResponse(
+    #     name='summary.html',
+    #     context={'request': request, 'user': user, 'summary': summary}
+    # )
+    return summary
 
 
-@app.get("/visualize")
-async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
+# @app.get("/visualize")
+def visualize_dictionary(request: Request, db: Session = Depends(get_db)):
 
     print(f"request: {request.session['user']}")
     etag = request.session.get('etag')
@@ -301,10 +304,23 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
     # categories = {'Education': 4, 'News & Politics': 1, 'Entertainment': 2, 'Gaming': 3, 'History & Geography': 1, 'Comedy': 2, 'Howto & Style': 1, 'Science & Technology': 1}
     user = request.session.get('user')
     # return categories
+    # return templates.TemplateResponse(
+    #     name='visualize.html',
+    #     context={'request': request, 'user': user, 'categories': top_categories}
+    # )
+    return top_categories
+
+
+@app.get("/analyze")
+async def retrieve_analysis(request: Request, db: Session = Depends(get_db)):
+    top_categories = visualize_dictionary(request, db)
+    summary = retrive_summarize_from_doc(request, db)
+    user = request.session.get('user')
+
     return templates.TemplateResponse(
-        name='visualize.html',
-        context={'request': request, 'user': user, 'categories': top_categories}
-    )
+            name='user-analysis.html',
+            context={'request': request, 'user': user, 'categories': top_categories, 'summary': summary}
+        )
 
 
 def get_random_subscriptions(db: Session, limit: int = 5):
@@ -312,11 +328,21 @@ def get_random_subscriptions(db: Session, limit: int = 5):
 
 
 @app.get("/get_recommendations")
-async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
+async def recommendations(request: Request, db: Session = Depends(get_db)):
     print(f"request: {request.session['user']}")
     etag = request.session.get('etag')
     print(f"Request: {request.session}, etag: {etag}")
+    user = request.session.get('user')
 
+
+    if os.path.exists('recommendations.npy'):
+        numbered_titles = np.load('recommendations.npy', allow_pickle=True)
+        return templates.TemplateResponse(
+            name='recommendation.html',
+            context={'request': request, 'user': user, 'recommendations': numbered_titles}
+        )
+
+    print(f"GOING INTO recommendations")
     if not etag:
         # if db.query(models.Onlyuser).filter(models.Onlyuser.global_user == request.session['user']['email']):
             # etag = db.query(models.Onlyuser)
@@ -337,9 +363,10 @@ async def retrive_summarize_from_doc(request: Request, db: Session = Depends(get
     
     print(f"titles: {titles}")
     
-    user = request.session.get('user')
 
     numbered_titles = [(i+1, title, link, channel, thumbnail) for i, (title, link, channel, thumbnail) in enumerate(titles)]
+
+    np.save('recommendations.npy', numbered_titles)
 
     return templates.TemplateResponse(
         name='recommendation.html',

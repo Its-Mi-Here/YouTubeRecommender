@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="static/icons/YT.png" sizes="192x192" type="image/x-icon">
+    <link rel="icon" href="static/icons/YT.png" type="image/x-icon">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Recommendations</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}" />
+    <title>Visualizations and Summary</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* General Styles */
         body {
@@ -45,7 +45,7 @@
             list-style: none;
             padding: 0;
             margin: 0;
-            padding-top: 60px; /* Add padding to shift down the buttons */
+            padding-top: 60px; /* Space for the toggle button */
         }
 
         .sidebar li {
@@ -83,7 +83,7 @@
         /* Toggle Button Styles */
         .toggle-btn {
             position: absolute;
-            top: 20px; /* Changed from bottom: 20px to top: 20px */
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
             background-color: #333;
@@ -105,6 +105,8 @@
             margin-left: 60px;
             width: 100%;
             padding: 30px;
+            display: flex; /* Use Flexbox for layout */
+            gap: 20px; /* Space between containers */
         }
 
         .sidebar.expanded + .main-content {
@@ -169,114 +171,66 @@
             display: block;
         }
 
-        /* Recommendations List */
-        .recommendations-container {
-            max-width: 900px;
-            max-height: 80vh; /* Limit height to 80% of the viewport height */
-            overflow-y: auto; /* Enable vertical scrolling */
-            margin: 80px auto 30px auto;
+        /* Visualizations Container */
+        .visualizations-container {
+            flex: 1; /* Take up half the space */
             padding: 20px;
             border-radius: 12px;
             background-color: #1e1e1e;
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
         }
-        /* Custom Scrollbar Styles */
-        .recommendations-container::-webkit-scrollbar {
-            width: 8px;
+
+        .visualizations-container h2 {
+            color: #e6cf69; /* Gold color for headings */
+            text-align: center;
         }
 
-        .recommendations-container::-webkit-scrollbar-track {
-            background: #1e1e1e;
-            border-radius: 4px;
+        .visualizations-container h3 {
+            color: #e6cf69; /* Gold color for subheadings */
+            margin-top: 20px;
         }
 
-        .recommendations-container::-webkit-scrollbar-thumb {
-            background: #555;
-            border-radius: 4px;
-        }
-
-        .recommendations-container::-webkit-scrollbar-thumb:hover {
-            background: #777;
-        }
-
-        .recommendation-item {
-            display: flex;
-            align-items: center;
-            margin: 20px 0;
-            border-bottom: 1px solid #333;
-            padding-bottom: 15px;
-        }
-
-        .recommendation-item:last-child {
-            border-bottom: none;
-        }
-
-        .thumbnail {
-            width: 150px;
-            height: 90px;
+        canvas {
+            max-width: 100%;
+            margin: 20px auto;
+            background-color:  #3a3a5a; /* Light blue background for charts */
             border-radius: 10px;
-            margin-right: 20px;
-            transition: transform 0.3s;
+            padding: 10px;
         }
 
-        .thumbnail:hover {
-            transform: scale(1.05);
+        /* Summary Container */
+        .summary-container {
+            flex: 1; /* Take up half the space */
+            padding: 20px;
+            border-radius: 12px;
+            background-color: #1e1e1e;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
         }
 
-        .video-info {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        .summary-container h2 {
+            color: #e6cf69; /* Gold color for headings */
+            text-align: center;
         }
 
-        .video-info a {
-            color: #00aaff;
-            text-decoration: none;
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 5px;
-            transition: color 0.3s;
-        }
-
-        .video-info a:hover {
-            color: #66c2ff;
-            text-decoration: underline;
-        }
-
-        .video-info span {
-            font-size: 14px;
-            color: #bbbbbb;
+        .summary-content {
+            background-color: #3a3a5a; /* Darker background for summary */
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #e0e0e0; /* Light gray text */
         }
 
         /* Responsive Adjustments */
-        @media (max-width: 600px) {
-            .thumbnail {
-                width: 100px;
-                height: 60px;
-            }
-
-            .video-info a {
-                font-size: 16px;
-            }
-
-            .sidebar {
-                width: 50px;
-            }
-
-            .sidebar.expanded {
-                width: 150px;
-            }
-
-            .sidebar:hover {
-                width: 150px;
-            }
-
+        @media (max-width: 768px) {
             .main-content {
-                margin-left: 50px;
+                flex-direction: column; /* Stack containers vertically on smaller screens */
             }
 
-            .sidebar.expanded + .main-content {
-                margin-left: 150px;
+            .visualizations-container,
+            .summary-container {
+                flex: none; /* Reset flex for stacked layout */
+                width: 100%;
             }
         }
     </style>
@@ -286,13 +240,12 @@
     <!-- Sidebar Navigation -->
     <div class="sidebar" id="sidebar">
         <ul>
-            <li><a href="/analyze">📝 <span>User Analysis</span></a></li>
-            <li><a href="/get_youtube_data">📥 <span>Sync data</span></a></li>
-            <!-- <li><a href="/analyze">📝 <span>Summarize</span></a></li> -->
-            <!-- <li><a href="/visualize">📊 <span>Visualize</span></a></li> -->
+            <!-- <li><a href="/summarize">📝 <span>Summarize</span></a></li> -->
+            <li><a href="/get_recommendations">📊 <span>Home Page</span></a></li>
+            <li><a href="/get-your-data">📥 <span>Sync data</span></a></li>
             <li><a href="/logout">🚪 <span>Logout</span></a></li>
         </ul>
-        <!-- Toggle Button Moved to Top -->
+        <!-- Toggle Button -->
         <button class="toggle-btn" onclick="toggleSidebar()">☰</button>
     </div>
 
@@ -308,19 +261,23 @@
             </div>
         </div>
 
-        <!-- Recommendations List -->
-        <div class="recommendations-container">
-            {% for index, title, link, channel, thumbnail in recommendations %}
-                <div class="recommendation-item">
-                    <a href="{{ link }}" target="_blank">
-                        <img class="thumbnail" src="{{ thumbnail }}" alt="Video Thumbnail">
-                    </a>
-                    <div class="video-info">
-                        <a href="{{ link }}" target="_blank">{{ title }}</a>
-                        <span>Channel: {{ channel }}</span>
-                    </div>
-                </div>
-            {% endfor %}
+        <!-- Visualizations Section -->
+        <div class="visualizations-container">
+            <h2>YouTube Subscription Categories for {{ user['given_name'] }}</h2>
+
+            <h3>Pie Chart - Category Distribution</h3>
+            <canvas id="pieChart"></canvas>
+
+            <h3>Bar Chart - Interest Levels</h3>
+            <canvas id="barChart"></canvas>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="summary-container">
+            <h2>Summary</h2>
+            <div class="summary-content">
+                {{ summary }}
+            </div>
         </div>
     </div>
 
@@ -346,7 +303,86 @@
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('expanded');
         }
-    </script>
 
+        // Render Charts
+        const categoriesData = {{ categories | tojson }};
+        const labels = Object.keys(categoriesData);
+        const values = Object.values(categoriesData);
+
+        function renderPieChart() {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Category Distribution',
+                        data: values,
+                        backgroundColor: [
+                            '#e74c3c', /* Red */
+                            '#3498db', /* Blue */
+                            '#f1c40f', /* Yellow */
+                            '#2ecc71', /* Green */
+                            '#9b59b6', /* Purple */
+                            '#e67e22'  /* Orange */
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#ffffff"
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderBarChart() {
+            const ctx = document.getElementById('barChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Interest Levels',
+                        data: values,
+                        backgroundColor: '#1a8abece',
+                        borderColor: '#ffffff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: "#ffffff"
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: "#ffffff"
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#ffffff"
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        renderPieChart();
+        renderBarChart();
+    </script>
 </body>
 </html>
