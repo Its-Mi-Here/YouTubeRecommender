@@ -1,0 +1,11 @@
+.env
+venv
+.pycharm
+.vscode
+__pycache__
+client_secret*
+*zip
+*.db
+*.jpg
+*.txt
+*.json
