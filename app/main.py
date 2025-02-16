@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, APIRouter, HTTPException
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -21,7 +21,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 from sqlalchemy import delete
 
+
+from app.models import FriendRequest, Friendship, Onlyuser
+from pydantic import BaseModel
+from typing import List
+import datetime as _dt
+from datetime import datetime
+
 import random
+from fastapi.responses import JSONResponse
 import os
 import numpy as np
 
@@ -59,7 +67,7 @@ templates = Jinja2Templates(directory="templates")
 def index(request: Request):
     user = request.session.get('user')
     if user:
-        return RedirectResponse('welcome')
+        return RedirectResponse('get_recommendations')
 
     return templates.TemplateResponse(
         name="home.html",
@@ -106,6 +114,154 @@ def logout(request: Request):
     request.session.clear()
     return RedirectResponse('/')
 
+# Pydantic model for response
+class OnlyuserResponse(BaseModel):
+    user_id: str
+    global_user: str
+    name: str
+    last_accessed: datetime
+    last_downloaded: datetime
+
+    class Config:
+        from_attributes = True  # Allows Pydantic to read from ORM objects
+
+class FriendRequestCreate(BaseModel):
+    sender_id: str
+    receiver_id: str
+
+class FriendRequestResponse(BaseModel):
+    id: int
+    sender_id: str
+    receiver_id: str
+    status: str
+    created_at: _dt.datetime
+
+@app.post("/friend-requests/", response_model=FriendRequestResponse)
+def create_friend_request(friend_request: FriendRequestCreate, db: Session = Depends(get_db)):
+    db_friend_request = FriendRequest(**friend_request.dict())
+    db.add(db_friend_request)
+    db.commit()
+    db.refresh(db_friend_request)
+    return db_friend_request
+
+@app.get("/friend-requests/{user_id}", response_model=List[FriendRequestResponse])
+def get_friend_requests(user_id: str, db: Session = Depends(get_db)):
+    return db.query(FriendRequest).filter(FriendRequest.receiver_id == user_id).all()
+
+@app.post("/friend-requests/{request_id}/accept")
+def accept_friend_request(request_id: int, db: Session = Depends(get_db)):
+    db_request = db.query(FriendRequest).filter(FriendRequest.id == request_id).first()
+    if not db_request:
+        raise HTTPException(status_code=404, detail="Friend request not found")
+    db_request.status = "accepted"
+    friendship = Friendship(user1_id=db_request.sender_id, user2_id=db_request.receiver_id)
+    db.add(friendship)
+    db.commit()
+    return {"message": "Friend request accepted"}
+
+@app.post("/friend-requests/{request_id}/reject")
+def reject_friend_request(request_id: int, db: Session = Depends(get_db)):
+    db_request = db.query(FriendRequest).filter(FriendRequest.id == request_id).first()
+    if not db_request:
+        raise HTTPException(status_code=404, detail="Friend request not found")
+    db_request.status = "rejected"
+    db.commit()
+    return {"message": "Friend request rejected"}
+
+
+@app.get("/api/friends/", response_model=List[OnlyuserResponse])
+def get_friends_api(db: Session = Depends(get_db), request: Request = None):
+    etag = request.session.get('etag')
+    if not etag:
+        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        if not etag:
+            return {"error": "User not authenticated"}
+
+    user_id = etag[0]
+
+    # Get accepted friends
+    friends = db.query(Onlyuser).join(Friendship, (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
+
+    # Convert SQLAlchemy objects to dictionaries
+    friends_list = [
+        {
+            "user_id": friend.user_id,
+            "global_user": friend.global_user,
+            "name": friend.name,
+            "last_accessed": friend.last_accessed,
+            "last_downloaded": friend.last_downloaded
+        }
+        for friend in friends
+    ]
+
+    return friends_list
+
+
+@app.get("/friends/")
+def get_friends_page(request: Request, db: Session = Depends(get_db)):
+    etag = request.session.get('etag')
+    if not etag:
+        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        if not etag:
+            return {"error": "User not authenticated"}
+
+    user_id = etag[0]
+
+    # Get accepted friends
+    friends = db.query(Onlyuser).join(Friendship, (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
+
+    # Get pending friend requests
+    pending_requests = db.query(FriendRequest).filter(FriendRequest.receiver_id == user_id, FriendRequest.status == "pending").all()
+
+    user = request.session.get('user')
+    # print(f"user: {user}")
+    return templates.TemplateResponse(
+        name='friends.html',
+        context={'request': request, 'user': user, 'friends': friends, 'pending_requests': pending_requests, 'etag': user_id}
+    )
+
+@app.get("/search-users/", response_model=List[OnlyuserResponse])
+def search_users(name: str, db: Session = Depends(get_db)):
+    # Search users
+    users = db.query(Onlyuser).filter(Onlyuser.name.ilike(f"%{name}%")).all()
+
+    # Convert each SQLAlchemy object to a dictionary
+    users_list = [user.__dict__ for user in users]
+
+    # Remove SQLAlchemy internal attribute
+    for user in users_list:
+        user.pop('_sa_instance_state', None)
+
+    return users_list
+
+
+@app.post("/send-friend-request/")
+def send_friend_request(request: FriendRequestCreate, db: Session = Depends(get_db)):
+    # Validate existence of sender and receiver
+    print(f"INSIDE send friend request")
+
+    sender = db.query(Onlyuser).filter_by(user_id=request.sender_id).first()
+    receiver = db.query(Onlyuser).filter_by(user_id=request.receiver_id).first()
+
+    print(f"sender: {sender}")
+    print(f"reciever: {receiver}")
+
+
+    if not sender or not receiver:
+        raise HTTPException(status_code=404, detail="Sender or receiver not found")
+
+    # Check for existing friend request
+    existing_request = db.query(FriendRequest).filter_by(sender_id=request.sender_id, receiver_id=request.receiver_id).first()
+    if existing_request:
+        raise HTTPException(status_code=400, detail="Friend request already sent")
+
+    # Create new friend request
+    new_request = FriendRequest(sender_id=request.sender_id, receiver_id=request.receiver_id, status="pending")
+    db.add(new_request)
+    db.commit()
+    db.refresh(new_request)
+
+    return {"message": f"Friend request sent from {request.sender_id} to {request.receiver_id}"}
 
 @app.get('/get_youtube_data')
 def get_youtube_data(request: Request,  db: Session = Depends(get_db)):

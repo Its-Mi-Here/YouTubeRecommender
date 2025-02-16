@@ -1,8 +1,6 @@
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, TIMESTAMP, DateTime, Float
 from sqlalchemy.orm import relationship
 import datetime as _dt
-# import passlib.hash as _hash
-
 from app.database import Base
 
 class Onlyuser(Base):
@@ -15,12 +13,8 @@ class Onlyuser(Base):
 
 class User(Base):
     __tablename__ = "users"
-
     user_id = Column(String, primary_key=True)
     subscription = Column(String, primary_key=True)
-
-    # items = relationship("Item", back_populates="owner")
-
 
 class Subscriptions(Base):
     __tablename__ = "subscriptions"
@@ -30,14 +24,12 @@ class Subscriptions(Base):
     category_1_GPT = Column(String)
     category_2_GPT = Column(String)
 
-    # owner = relationship("User", back_populates="items")
 class Videos(Base):
     __tablename__ = "videos"
     id = Column(String, primary_key=True)
     channel_id = Column(String)
     title = Column(String, index=True)
     description = Column(String, index=True)
-
 
 class Preferences(Base):
     __tablename__ = "preference"
@@ -49,3 +41,18 @@ class ComputedPreferences(Base):
     user_id = Column(String, primary_key=True)
     preference = Column(String, primary_key=True)
     weight = Column(Float)
+
+class FriendRequest(Base):
+    __tablename__ = "friend_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(String, ForeignKey('onlyusers.user_id'))  # Ensure this matches your user table
+    receiver_id = Column(String, ForeignKey('onlyusers.user_id'))  # Ensure this matches your user table
+    status = Column(String, default="pending")  # pending, accepted, rejected
+    created_at = Column(DateTime, default=_dt.datetime.now)
+
+class Friendship(Base):
+    __tablename__ = "friendships"
+    id = Column(Integer, primary_key=True, index=True)
+    user1_id = Column(String, ForeignKey('onlyusers.user_id'))
+    user2_id = Column(String, ForeignKey('onlyusers.user_id'))
+    created_at = Column(DateTime, default=_dt.datetime.now)

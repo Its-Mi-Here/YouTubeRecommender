@@ -6,6 +6,6 @@ __pycache__
 client_secret*
 *zip
 *.db
-*.jpg
+# *.jpg
 *.txt
 *.json
