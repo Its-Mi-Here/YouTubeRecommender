@@ -179,6 +179,7 @@ def get_friends_api(db: Session = Depends(get_db), request: Request = None):
 
     user_id = etag[0]
 
+    print(f"in get_friends_api")
     # Get accepted friends
     friends = db.query(Onlyuser).join(Friendship, (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
 
@@ -214,6 +215,7 @@ def get_friends_page(request: Request, db: Session = Depends(get_db)):
     pending_requests = db.query(FriendRequest).filter(FriendRequest.receiver_id == user_id, FriendRequest.status == "pending").all()
 
     user = request.session.get('user')
+    print(f"user_id etag: {user_id}")
     # print(f"user: {user}")
     return templates.TemplateResponse(
         name='friends.html',
@@ -426,8 +428,8 @@ def visualize_dictionary(request: Request, db: Session = Depends(get_db)):
             subscriptions = json.load(f)
         categories = get_categories(subscriptions)
         # print(f"categories: {categories}")
-        # with open('categories.json', 'w') as json_file:
-        #     json.dump(categories, json_file, indent=4)
+        with open(f'categories_{etag}.json', 'w') as json_file:
+            json.dump(categories, json_file, indent=4)
         total_channels = sum(categories.values())
         db.execute(delete(models.ComputedPreferences).where(models.ComputedPreferences.user_id == etag))
         db.commit()
@@ -509,7 +511,7 @@ async def recommendations(request: Request, db: Session = Depends(get_db)):
             return {"error": "User not authenticated"}
     
     etag = etag[0]
-    random_subscriptions = get_random_subscriptions(db, limit=8)
+    random_subscriptions = get_random_subscriptions(db, limit=20)
     titles = []
     for sub in random_subscriptions:
         # print(sub.title, sub.id, sub.description)
