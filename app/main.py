@@ -108,7 +108,7 @@ async def auth(request: Request):
 
     # Also store the actual token
     request.session['google_token'] = token
-    return RedirectResponse('get_recommendations')
+    return RedirectResponse('get_youtube_data')
 
 
 @app.get('/logout')
