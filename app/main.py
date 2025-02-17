@@ -174,10 +174,10 @@ def get_friends_api(db: Session = Depends(get_db), request: Request = None):
     etag = request.session.get('etag')
     if not etag:
         etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        user_id = etag[0]
         if not etag:
             return {"error": "User not authenticated"}
 
-    user_id = etag[0]
 
     print(f"in get_friends_api")
     # Get accepted friends
@@ -203,11 +203,11 @@ def get_friends_page(request: Request, db: Session = Depends(get_db)):
     etag = request.session.get('etag')
     if not etag:
         etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        etag = etag[0]
         if not etag:
             return {"error": "User not authenticated"}
 
-    user_id = etag[0]
-
+    user_id = etag
     # Get accepted friends
     friends = db.query(Onlyuser).join(Friendship, (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
 
@@ -276,8 +276,7 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
     api_service_name = "youtube"
     api_version = "v3"
     scopes = [
-    "https://www.googleapis.com/auth/youtube.readonly",
-    "https://www.googleapis.com/auth/youtube.force-ssl"
+    "https://www.googleapis.com/auth/youtube.readonly"
     ]
     
     client_secrets_file = "client_secret_860774433001-ojb91ftpisr9gb8jj6thtcvo9qdl53t9.apps.googleusercontent.com.json"
@@ -304,29 +303,26 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
     print(f"ETAG: {etag} & name: {name}")
     print(f"request.session: {request.session}")
 
-    # subscriptions = get_subscriptions(youtube, max_results=50000)
-    if db.query(models.Onlyuser).filter(models.Onlyuser.user_id == user_info.get('etag')).first():
-        # name=user_info.get('items')[0].get('snippet').get('title')
-        print(f"Welcome Back {name}!")
-        # return {"message": f"Welcome Back {name}!"}
-        user = request.session.get('user')
-        return templates.TemplateResponse(
-            name='get_data.html',
-            context={'request': request, 'user': user}
-        )
+    # if db.query(models.Onlyuser).filter(models.Onlyuser.user_id == user_info.get('etag')).first():
+    #     # name=user_info.get('items')[0].get('snippet').get('title')
+    #     print(f"Welcome Back {name}!")
+    #     # return {"message": f"Welcome Back {name}!"}
+    #     user = request.session.get('user')
+    #     return templates.TemplateResponse(
+    #         name='get_data.html',
+    #         context={'request': request, 'user': user}
+    #     )
 
-    else:
-        print(f"Welcome {name}!")
-        db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), 
-                                    global_user=request.session['user']['email'] , 
-                                    name=name)
-        db.add(db_onlyuser)
-        db.commit()
+    # else:
+    #     print(f"Welcome {name}!")
+    #     db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), 
+    #                                 global_user=request.session['user']['email'] , 
+    #                                 name=name)
+    #     db.add(db_onlyuser)
+    #     db.commit()
 
 
     subscriptions = get_subscriptions(youtube, max_results=50000)
-    # liked_videos = get_liked_videos(youtube, max_results=50000)
-
 
     for item in subscriptions:
         channel_name = item["title"]
@@ -338,27 +334,26 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
         db.add(db_subscription)
 
         db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
+        # if db.query(models.User).filter(models.User.user_id == channel_id).first():
+        #     continue
         db.add(db_user)
 
     db.commit()
-    # return {"message": f"Hello {name}! Your data was saved to the database."}
-
-
-    # return {"message": f"Hello {name}! Your data was saved to the database."}
-
-    # return RedirectResponse('welcome_2')
     with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
         json.dump(subscriptions, json_file, indent=4)
     
     user = request.session.get('user')
     print(f"user: {user}")
     print(f"surname: {user['family_name']}")
-    # print(f"surname: {user['family_name']}")
-    
+
+    numbered_titles = []
+    if os.path.exists('recommendations.npy'):
+        numbered_titles = np.load('recommendations.npy', allow_pickle=True)
+
     return templates.TemplateResponse(
-        name='get_data.html',
-        context={'request': request, 'user': user}
-    )
+        name='recommendation.html',
+        context={'request': request, 'user': user, 'recommendations': numbered_titles}
+        )
 
 # @app.get("/summarize")
 def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
@@ -371,10 +366,10 @@ def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
         etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
         # etag = user_from_db.
         print(f"user_from_db: {type(etag)}")
+        etag = etag[0]
         if not etag:
             return {"error": "User not authenticated"}
 
-    etag = etag[0]
     with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
         subscriptions = json.load(f)
     
@@ -393,15 +388,9 @@ def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
     user = request.session.get('user')
     if not user:
         return RedirectResponse('/')
-    
-    # return templates.TemplateResponse(
-    #     name='summary.html',
-    #     context={'request': request, 'user': user, 'summary': summary}
-    # )
+
     return summary
 
-
-# @app.get("/visualize")
 def visualize_dictionary(request: Request, db: Session = Depends(get_db)):
 
     print(f"request: {request.session['user']}")
@@ -414,10 +403,11 @@ def visualize_dictionary(request: Request, db: Session = Depends(get_db)):
         etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
         # etag = user_from_db.
         print(f"user_from_db: {type(etag)}")
+        etag = etag[0]
         if not etag:
             return {"error": "User not authenticated"}
     
-    etag = etag[0]  
+    print(f"etag: {etag}")
     
     categories_arr = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id==etag)
     categories = dict(categories_arr)
@@ -507,10 +497,11 @@ async def recommendations(request: Request, db: Session = Depends(get_db)):
         etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
         # etag = user_from_db.
         print(f"user_from_db: {type(etag)}")
+        etag = etag[0]
+
         if not etag:
             return {"error": "User not authenticated"}
     
-    etag = etag[0]
     random_subscriptions = get_random_subscriptions(db, limit=20)
     titles = []
     for sub in random_subscriptions:
