@@ -14,7 +14,7 @@ import json
 from app.summarize import summarize
 from app.visualize import get_categories
 
-
+from google.oauth2.credentials import Credentials
 import app.models as models
 from app.database import SessionLocal, engine
 from sqlalchemy.orm import Session
@@ -54,8 +54,9 @@ oauth.register(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     client_kwargs={
-        'scope': 'email openid profile',
-        'redirect_url': 'http://localhost:8000/auth'
+        'scope': 'email openid profile https://www.googleapis.com/auth/youtube.readonly',
+        # 'redirect_url': 'http://localhost:8000/auth'
+        'redirect_url': 'https://he-bagh-e226a13bbbd3.herokuapp.com/ '
     }
 )
 
@@ -101,10 +102,12 @@ async def auth(request: Request):
             name='error.html',
             context={'request': request, 'error': e.error}
         )
-    user = token.get('userinfo')
-    if user:
-        request.session['user'] = dict(user)
-    # return RedirectResponse('welcome')
+    userinfo = token.get('userinfo')
+    if userinfo:
+        request.session['user'] = dict(userinfo)
+
+    # Also store the actual token
+    request.session['google_token'] = token
     return RedirectResponse('get_recommendations')
 
 
@@ -265,36 +268,39 @@ def send_friend_request(request: FriendRequestCreate, db: Session = Depends(get_
 
     return {"message": f"Friend request sent from {request.sender_id} to {request.receiver_id}"}
 
+
 @app.get('/get_youtube_data')
-def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
-    # print(request.session)
-    # user = request.session.get('user')
-    # # print(user)
-    # if not user:
-    #     return RedirectResponse('/')
+def get_youtube_data(request: Request, db: Session = Depends(get_db)):
+    # 1) Check that user is logged in
+    user = request.session.get('user')
+    if not user:
+        return RedirectResponse('/login')
     
-    api_service_name = "youtube"
-    api_version = "v3"
-    scopes = [
-    "https://www.googleapis.com/auth/youtube.readonly"
-    ]
-    
-    client_secrets_file = "client_secret_860774433001-ojb91ftpisr9gb8jj6thtcvo9qdl53t9.apps.googleusercontent.com.json"
+    # 2) Retrieve token from session
+    token = request.session.get('google_token')
+    if not token:
+        return {"error": "No token found; user has not granted YouTube access"}
 
-    # Get credentials and create an API client
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        client_secrets_file, scopes, redirect_uri='http://localhost:8080/')
-    
-    # Run the local server and authenticate
-    credentials = flow.run_local_server(port=8080)
+    # 3) Convert session token to Credentials
+    creds = Credentials(
+        token['access_token'],
+        refresh_token=token.get('refresh_token'),
+        token_uri='https://oauth2.googleapis.com/token',
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        scopes=['https://www.googleapis.com/auth/youtube.readonly']
+    )
 
-    # print(f"CREDS in get_youtube_data: {CREDS}")    
-    youtube = googleapiclient.discovery.build(api_service_name, api_version, credentials=credentials)
-    
+    # 4) Use credentials to build the YouTube client
+    youtube = googleapiclient.discovery.build(
+        "youtube", "v3", credentials=creds
+    )
+
+    # 5) Now you can call your get_user_info, get_subscriptions, etc.
     user_info = get_user_info(youtube)
     etag = user_info.get('etag')
     request.session['etag'] = etag
-
+    
     try:
         name=user_info.get('items')[0].get('snippet').get('title')
     except:
@@ -302,25 +308,6 @@ def get_youtube_data(request: Request,  db: Session = Depends(get_db)):
 
     print(f"ETAG: {etag} & name: {name}")
     print(f"request.session: {request.session}")
-
-    # if db.query(models.Onlyuser).filter(models.Onlyuser.user_id == user_info.get('etag')).first():
-    #     # name=user_info.get('items')[0].get('snippet').get('title')
-    #     print(f"Welcome Back {name}!")
-    #     # return {"message": f"Welcome Back {name}!"}
-    #     user = request.session.get('user')
-    #     return templates.TemplateResponse(
-    #         name='get_data.html',
-    #         context={'request': request, 'user': user}
-    #     )
-
-    # else:
-    #     print(f"Welcome {name}!")
-    #     db_onlyuser = models.Onlyuser(user_id=user_info.get('etag'), 
-    #                                 global_user=request.session['user']['email'] , 
-    #                                 name=name)
-    #     db.add(db_onlyuser)
-    #     db.commit()
-
 
     subscriptions = get_subscriptions(youtube, max_results=50000)
 
