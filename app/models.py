@@ -71,6 +71,7 @@ class Onlyuser(Base):
     user_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))  # Store UUID as string
     global_user = Column(String, unique=True)  # User's email
     name = Column(String)
+    etag = Column(String)
     last_accessed = Column(DateTime, default=_dt.datetime.now)
     last_downloaded = Column(DateTime, default=_dt.datetime.now)
 

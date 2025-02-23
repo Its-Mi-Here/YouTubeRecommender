@@ -29,6 +29,8 @@ from datetime import datetime
 import os
 import numpy as np
 import uuid
+from uuid import UUID
+
 
 
 models.Base.metadata.create_all(bind=engine)
@@ -68,7 +70,6 @@ def index(request: Request):
         context={"request": request}
     )
 
-
 @app.get('/welcome')
 def welcome(request: Request):
     user = request.session.get('user')
@@ -79,29 +80,10 @@ def welcome(request: Request):
         context={'request': request, 'user': user}
     )
 
-
 @app.get("/login")
 async def login(request: Request):
     url = request.url_for('auth')
     return await oauth.google.authorize_redirect(request, url)
-
-
-# @app.get('/auth')
-# async def auth(request: Request):
-#     try:
-#         token = await oauth.google.authorize_access_token(request)
-#     except OAuthError as e:
-#         return templates.TemplateResponse(
-#             name='error.html',
-#             context={'request': request, 'error': e.error}
-#         )
-#     userinfo = token.get('userinfo')
-#     if userinfo:
-#         request.session['user'] = dict(userinfo)
-
-#     request.session['google_token'] = token
-#     return RedirectResponse('get_youtube_data')
-
 
 @app.get('/auth')
 async def auth(request: Request, db: Session = Depends(get_db)):
@@ -133,11 +115,13 @@ async def auth(request: Request, db: Session = Depends(get_db)):
         user_id = db_user.user_id
 
     # Store UUID in the session instead of eTag
-    request.session['user'] = {"email": email, "name": name, "user_id": str(user_id)}
+    request.session['user'] = {"email": email, "name": name, "user_id": str(user_id), 
+                               "given_name": userinfo.get('given_name'), 
+                               "family_name": userinfo.get('family_name'),
+                               "picture": userinfo.get('picture')}
     request.session['google_token'] = token
 
-    return RedirectResponse('get_youtube_data')
-
+    return RedirectResponse('get_recommendations')
 
 @app.get('/logout')
 def logout(request: Request):
@@ -159,10 +143,14 @@ class OnlyuserResponse(BaseModel):
 class FriendRequestCreate(BaseModel):
     sender_id: str
     receiver_id: str
+    sender_name: str
+    receiver_name: str
 
 class FriendRequestResponse(BaseModel):
     id: int
     sender_id: str
+    sender_name: str
+    sender_email: str
     receiver_id: str
     status: str
     created_at: _dt.datetime
@@ -179,36 +167,51 @@ def create_friend_request(friend_request: FriendRequestCreate, db: Session = Dep
 def get_friend_requests(user_id: str, db: Session = Depends(get_db)):
     return db.query(FriendRequest).filter(FriendRequest.receiver_id == user_id).all()
 
+
 @app.post("/friend-requests/{request_id}/accept")
-def accept_friend_request(request_id: int, db: Session = Depends(get_db)):
-    db_request = db.query(FriendRequest).filter(FriendRequest.id == request_id).first()
+def accept_friend_request(request_id: UUID, db: Session = Depends(get_db)):
+    request_id = str(request_id)  # Convert UUID to string
+
+    db_request = db.query(models.FriendRequest).filter(models.FriendRequest.id == request_id).first()
+    
     if not db_request:
         raise HTTPException(status_code=404, detail="Friend request not found")
+
     db_request.status = "accepted"
-    friendship = Friendship(user1_id=db_request.sender_id, user2_id=db_request.receiver_id)
+    friendship = models.Friendship(user1_id=db_request.sender_id, user2_id=db_request.receiver_id)
+    
     db.add(friendship)
     db.commit()
+
     return {"message": "Friend request accepted"}
 
 @app.post("/friend-requests/{request_id}/reject")
-def reject_friend_request(request_id: int, db: Session = Depends(get_db)):
-    db_request = db.query(FriendRequest).filter(FriendRequest.id == request_id).first()
+def reject_friend_request(request_id: UUID, db: Session = Depends(get_db)):
+    request_id = str(request_id)  # Convert UUID to string
+
+    db_request = db.query(models.FriendRequest).filter(models.FriendRequest.id == request_id).first()
+    
     if not db_request:
         raise HTTPException(status_code=404, detail="Friend request not found")
+
     db_request.status = "rejected"
     db.commit()
+
     return {"message": "Friend request rejected"}
+
 
 
 @app.get("/api/friends/", response_model=List[OnlyuserResponse])
 def get_friends_api(db: Session = Depends(get_db), request: Request = None):
     etag = request.session.get('etag')
-    if not etag:
-        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
-        user_id = etag[0]
-        if not etag:
+    user = request.session.get('user_id')
+    if not user:
+        user = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        user = user[0]
+        if not user:
             return {"error": "User not authenticated"}
 
+    user_id = user
     # Get accepted friends
     friends = db.query(Onlyuser).join(Friendship, (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
 
@@ -229,24 +232,48 @@ def get_friends_api(db: Session = Depends(get_db), request: Request = None):
 
 @app.get("/friends/")
 def get_friends_page(request: Request, db: Session = Depends(get_db)):
-    etag = request.session.get('etag')
-    if not etag:
-        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
-        etag = etag[0]
-        if not etag:
+    # etag = request.session.get('etag')
+    user = request.session.get('user_id')
+    if not user:
+        user = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        user = user[0]
+        if not user:
             return {"error": "User not authenticated"}
 
-    user_id = etag
+    user_id = user
     # Get accepted friends
-    friends = db.query(Onlyuser).join(Friendship, (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
+    friends = db.query(Onlyuser).join(
+        Friendship, 
+        (Friendship.user1_id == Onlyuser.user_id) | (Friendship.user2_id == Onlyuser.user_id)
+    ).filter((Friendship.user1_id == user_id) | (Friendship.user2_id == user_id)).all()
 
-    # Get pending friend requests
-    pending_requests = db.query(FriendRequest).filter(FriendRequest.receiver_id == user_id, FriendRequest.status == "pending").all()
+    # Get pending friend requests with sender details
+    pending_requests = (
+        db.query(FriendRequest, Onlyuser.name, Onlyuser.global_user)
+        .join(Onlyuser, FriendRequest.sender_id == Onlyuser.user_id)
+        .filter(FriendRequest.receiver_id == user_id, FriendRequest.status == "pending")
+        .all()
+    )
+
+    # Convert to structured data
+    pending_requests_data = [
+        {
+            "id": req.FriendRequest.id,
+            "sender_id": req.FriendRequest.sender_id,
+            "sender_name": req.name,  # Name from Onlyuser
+            "sender_email": req.global_user,  # Email from Onlyuser
+            "receiver_id": req.FriendRequest.receiver_id,
+            "status": req.FriendRequest.status,
+            "created_at": req.FriendRequest.created_at
+        }
+        for req in pending_requests
+    ]
 
     user = request.session.get('user')
+
     return templates.TemplateResponse(
         name='friends.html',
-        context={'request': request, 'user': user, 'friends': friends, 'pending_requests': pending_requests, 'etag': user_id}
+        context={'request': request, 'user': user, 'friends': friends, 'pending_requests': pending_requests_data, 'user_id': user_id}
     )
 
 @app.get("/search-users/", response_model=List[OnlyuserResponse])
@@ -283,77 +310,7 @@ def send_friend_request(request: FriendRequestCreate, db: Session = Depends(get_
     db.add(new_request)
     db.commit()
     db.refresh(new_request)
-
     return {"message": f"Friend request sent from {request.sender_id} to {request.receiver_id}"}
-
-
-# @app.get('/get_youtube_data')
-# def get_youtube_data(request: Request, db: Session = Depends(get_db)):
-#     # 1) Check that user is logged in
-#     user = request.session.get('user')
-#     if not user:
-#         return RedirectResponse('/login')
-    
-#     # 2) Retrieve token from session
-#     token = request.session.get('google_token')
-#     if not token:
-#         return {"error": "No token found; user has not granted YouTube access"}
-
-#     # 3) Convert session token to Credentials
-#     creds = Credentials(
-#         token['access_token'],
-#         refresh_token=token.get('refresh_token'),
-#         token_uri='https://oauth2.googleapis.com/token',
-#         client_id=CLIENT_ID,
-#         client_secret=CLIENT_SECRET,
-#         scopes=['https://www.googleapis.com/auth/youtube.readonly']
-#     )
-
-#     # 4) Use credentials to build the YouTube client
-#     youtube = googleapiclient.discovery.build(
-#         "youtube", "v3", credentials=creds
-#     )
-
-#     # 5) Now you can call your get_user_info, get_subscriptions, etc.
-#     user_info = get_user_info(youtube)
-#     etag = user_info.get('etag')
-#     request.session['etag'] = etag
-    
-#     try:
-#         name=user_info.get('items')[0].get('snippet').get('title')
-#     except:
-#         name = f'Anon_{etag}'
-
-#     subscriptions = get_subscriptions(youtube, max_results=50000)
-
-#     for item in subscriptions:
-#         channel_name = item["title"]
-#         channel_id = item["channelId"]
-        
-#         db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
-#         if db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first():
-#             continue
-#         db.add(db_subscription)
-
-#         db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
-#         # if db.query(models.User).filter(models.User.user_id == channel_id).first():
-#         #     continue
-#         db.add(db_user)
-
-#     db.commit()
-#     with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
-#         json.dump(subscriptions, json_file, indent=4)
-    
-#     user = request.session.get('user')
-
-#     numbered_titles = []
-#     if os.path.exists('recommendations.npy'):
-#         numbered_titles = np.load('recommendations.npy', allow_pickle=True)
-
-#     return templates.TemplateResponse(
-#         name='recommendation.html',
-#         context={'request': request, 'user': user, 'recommendations': numbered_titles}
-#         )
 
 @app.get('/get_youtube_data')
 def get_youtube_data(request: Request, db: Session = Depends(get_db)):
@@ -409,76 +366,93 @@ def get_youtube_data(request: Request, db: Session = Depends(get_db)):
             db.add(db_user)
 
     db.commit()
-    with open(f"youtube_subscriptions_{user_id}.json", 'w') as json_file:
-        json.dump(subscriptions, json_file, indent=4)
-    
     user = request.session.get('user')
-
-    numbered_titles = []
-    if os.path.exists('recommendations.npy'):
-        numbered_titles = np.load('recommendations.npy', allow_pickle=True)
-
-    return templates.TemplateResponse(
-        name='recommendation.html',
-        context={'request': request, 'user': user, 'recommendations': numbered_titles}
-        )
-    # return {"message": "YouTube data retrieved successfully"}
+    return RedirectResponse('get_recommendations')
 
 
-# @app.get("/summarize")
 def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
-    etag = request.session.get('etag')
-    if not etag:
-        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
-        etag = etag[0]
-        if not etag:
-            return {"error": "User not authenticated"}
-
-    with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
-        subscriptions = json.load(f)
-    
-    try:
-        summary = summarize(subscriptions[:50])
-    except:
-        summary = "There was something wrong with summarization"
-    # summary = "This is your summary from the NLP module. You like Tech videos, Pets and all."
-
-    with open(f"summary_{etag}.txt", 'w') as json_file:
-        json_file.write(summary)
-
-    request.session['summary'] = summary    
-    # return summary
-
+    # Get user_id from the session
     user = request.session.get('user')
-    if not user:
-        return RedirectResponse('/')
+    if not user or "user_id" not in user:
+        return {"error": "User not authenticated"}
+    
+    user_id = user["user_id"]
+
+    # Fetch all subscriptions for the user
+    subscriptions = (
+        db.query(models.Subscriptions)
+        .join(models.User, models.User.subscription == models.Subscriptions.id)
+        .filter(models.User.user_id == user_id)
+        .all()
+    )
+
+    # If no subscriptions are found, return a message
+    if not subscriptions:
+        return {"summary": "You have no subscriptions listed here, please verify our application to fetch the data."}
+
+    # Convert SQLAlchemy objects to a list of dictionaries
+    subscriptions_data = [
+        {
+            "channelId": sub.id,
+            "title": sub.title,
+            "description": sub.description,
+        }
+        for sub in subscriptions
+    ]
+
+    try:
+        # Call the summarize function with the subscriptions
+        summary = summarize(subscriptions_data)
+    except Exception as e:
+        summary = "There was something wrong with summarization."
+
+    # Store summary in session
+    request.session['summary'] = summary
 
     return summary
 
 def visualize_dictionary(request: Request, db: Session = Depends(get_db)):
-    etag = request.session.get('etag')
-    if not etag:
-        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
-        etag = etag[0]
-        if not etag:
-            return {"error": "User not authenticated"}
+    user = request.session.get('user')
+    if not user or "user_id" not in user:
+        return {"error": "User not authenticated"}
+    
+    user_id = user["user_id"]
         
-    categories_arr = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id==etag)
+    categories_arr = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id==user_id)
     categories = dict(categories_arr)
 
     if len(categories) == 0:    
-        with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
-            subscriptions = json.load(f)
+        # Fetch all subscriptions for the user
+        subscriptions = (
+            db.query(models.Subscriptions)
+            .join(models.User, models.User.subscription == models.Subscriptions.id)
+            .filter(models.User.user_id == user_id)
+            .all()
+        )
+
+        # If no subscriptions are found, return a message
+        if not subscriptions:
+            return {"summary": "You have no subscriptions listed here, please verify our application to fetch the data."}
+
+        # Convert SQLAlchemy objects to a list of dictionaries
+        subscriptions = [
+            {
+                "channelId": sub.id,
+                "title": sub.title,
+                "description": sub.description,
+            }
+            for sub in subscriptions
+        ]
         
         categories = get_categories(subscriptions)
 
-        with open(f'categories_{etag}.json', 'w') as json_file:
-            json.dump(categories, json_file, indent=4)
+        # with open(f'categories_{user_id}.json', 'w') as json_file:
+        #     json.dump(categories, json_file, indent=4)
         total_channels = sum(categories.values())
-        db.execute(delete(models.ComputedPreferences).where(models.ComputedPreferences.user_id == etag))
+        db.execute(delete(models.ComputedPreferences).where(models.ComputedPreferences.user_id == user_id))
         db.commit()
         for category, num in categories.items():
-            db_preference = models.ComputedPreferences(user_id=etag, preference=category, weight=num/total_channels)
+            db_preference = models.ComputedPreferences(user_id=user_id, preference=category, weight=num/total_channels)
             db.merge(db_preference)
         db.commit()
 
@@ -525,10 +499,10 @@ async def recommendations(request: Request, db: Session = Depends(get_db)):
     #         context={'request': request, 'user': user, 'recommendations': numbered_titles}
     #     )
 
-    if not etag:
-        etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
-        etag = etag[0]
-        if not etag:
+    if not user:
+        user = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
+        user = user[0]
+        if not user:
             return {"error": "User not authenticated"}
     
     random_subscriptions = get_random_subscriptions(db, limit=5)
@@ -537,8 +511,6 @@ async def recommendations(request: Request, db: Session = Depends(get_db)):
         info = get_random_videos(sub.id, sub.title, max_results=1)
         titles.extend(info)
     numbered_titles = [(i+1, title, link, channel, thumbnail) for i, (title, link, channel, thumbnail) in enumerate(titles)]
-
-    # np.save('recommendations.npy', numbered_titles)
 
     return templates.TemplateResponse(
         name='recommendation.html',

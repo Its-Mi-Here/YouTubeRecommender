@@ -261,10 +261,10 @@
             <ul>
                 {% for request in pending_requests %}
                     <li class="friend-item">
-                        <div class="friend-info">{{ request.sender_id }}</div>
+                        <div class="friend-info">{{ request.sender_name }} ({{ request.sender_email }})</div>
                         <div class="friend-actions">
-                            <button class="accept-btn" onclick="acceptRequest({{ request.id }})">Accept</button>
-                            <button class="reject-btn" onclick="rejectRequest({{ request.id }})">Reject</button>
+                            <button class="accept-btn" onclick="acceptRequest('{{ request.id }}')">Accept</button>
+                            <button class="reject-btn" onclick="rejectRequest('{{ request.id }}')">Reject</button>
                         </div>
                     </li>
                 {% endfor %}
@@ -313,7 +313,7 @@
         }
 
         async function sendFriendRequest(receiverId) {
-            const senderId = "{{ etag }}";
+            const senderId = "{{ user_id }}";
             const response = await fetch('/send-friend-request/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -323,17 +323,45 @@
             else alert('Failed to send friend request');
         }
 
+        // async function acceptRequest(requestId) {
+        //     const response = await fetch(`/friend-requests/${requestId}/accept`, { method: 'POST' });
+        //     if (response.ok) location.reload();
+        //     else alert('Failed to accept request');
+        // }
+
+        // async function rejectRequest(requestId) {
+        //     const response = await fetch(`/friend-requests/${requestId}/reject`, { method: 'POST' });
+        //     if (response.ok) location.reload();
+        //     else alert('Failed to reject request');
+        // }
         async function acceptRequest(requestId) {
-            const response = await fetch(`/friend-requests/${requestId}/accept`, { method: 'POST' });
-            if (response.ok) location.reload();
-            else alert('Failed to accept request');
+            const response = await fetch(`/friend-requests/${requestId}/accept`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                alert("Friend request accepted!");
+                location.reload(); // Reload page to update UI
+            } else {
+                alert("Failed to accept request.");
+            }
         }
 
         async function rejectRequest(requestId) {
-            const response = await fetch(`/friend-requests/${requestId}/reject`, { method: 'POST' });
-            if (response.ok) location.reload();
-            else alert('Failed to reject request');
+            const response = await fetch(`/friend-requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.ok) {
+                alert("Friend request rejected!");
+                location.reload(); // Reload page to update UI
+            } else {
+                alert("Failed to reject request.");
+            }
         }
+
     </script>
 </body>
 </html>
