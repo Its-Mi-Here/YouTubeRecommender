@@ -1,3 +1,4 @@
+import random
 import googleapiclient.discovery
 import googleapiclient.errors
 from .config import API_KEY
@@ -86,7 +87,7 @@ def get_most_popular_videos(channel_id, channel_name, max_results=20):
     request = youtube.playlistItems().list(
         part="snippet",
         playlistId=uploads_playlist_id,
-        maxResults=50  # Fetch more to ensure sorting is effective
+        maxResults=10  # Fetch more to ensure sorting is effective
     )
     response = request.execute()
 
@@ -111,6 +112,70 @@ def get_most_popular_videos(channel_id, channel_name, max_results=20):
         thumbnail_url = video['snippet']['thumbnails']['medium']['url']
         # print(f"{i+1}. {title} - {views} views\n   {video_url}")
         recommendations.append( (title, video_url, channel_name, thumbnail_url) )
+
+    return recommendations
+
+def get_random_videos(channel_id, channel_name, max_results=20):
+    youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
+
+    # Get video IDs from the uploads playlist
+    uploads_playlist_id = get_channel_uploads_playlist(channel_id)
+
+    request = youtube.playlistItems().list(
+        part="snippet",
+        playlistId=uploads_playlist_id,
+        maxResults=max_results * 2  # Fetch more videos to ensure randomness
+    )
+    response = request.execute()
+
+    video_items = response.get('items', [])
+    if not video_items:
+        return []
+
+    # Select random videos (avoiding extra API calls)
+    random_videos = random.sample(video_items, min(max_results, len(video_items)))
+
+    recommendations = [
+        (
+            video['snippet']['title'],
+            f"https://www.youtube.com/watch?v={video['snippet']['resourceId']['videoId']}",
+            channel_name,
+            video['snippet']['thumbnails']['medium']['url']
+        )
+        for video in random_videos
+    ]
+
+    return recommendations
+
+def get_super_fast_videos(channel_id, channel_name, max_results=20):
+    youtube = googleapiclient.discovery.build('youtube', 'v3', developerKey=API_KEY)
+
+    # Directly fetch max_results videos, avoiding extra requests
+    request = youtube.search().list(
+        part="snippet",
+        channelId=channel_id,
+        maxResults=max_results,
+        type="video",
+        order="date"  # Fetch latest videos for freshness
+    )
+    response = request.execute()
+
+    video_items = response.get('items', [])
+    if not video_items:
+        return []
+
+    # Randomly pick videos (without extra API calls)
+    selected_videos = random.choices(video_items, k=min(max_results, len(video_items)))
+
+    recommendations = [
+        (
+            video['snippet']['title'],
+            f"https://www.youtube.com/watch?v={video['id']['videoId']}",
+            channel_name,
+            video['snippet']['thumbnails']['medium']['url']
+        )
+        for video in selected_videos
+    ]
 
     return recommendations
 

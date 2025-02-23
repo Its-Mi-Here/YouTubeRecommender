@@ -8,7 +8,7 @@ from .config import CLIENT_ID, CLIENT_SECRET
 from fastapi.staticfiles import StaticFiles
 import googleapiclient.discovery
 import googleapiclient.errors
-from app.youtube_helper import get_user_info, get_subscriptions, get_most_popular_videos
+from app.youtube_helper import get_user_info, get_subscriptions, get_most_popular_videos, get_random_videos
 import json
 from app.summarize import summarize
 from app.visualize import get_categories
@@ -28,6 +28,8 @@ import datetime as _dt
 from datetime import datetime
 import os
 import numpy as np
+import uuid
+
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -84,8 +86,25 @@ async def login(request: Request):
     return await oauth.google.authorize_redirect(request, url)
 
 
+# @app.get('/auth')
+# async def auth(request: Request):
+#     try:
+#         token = await oauth.google.authorize_access_token(request)
+#     except OAuthError as e:
+#         return templates.TemplateResponse(
+#             name='error.html',
+#             context={'request': request, 'error': e.error}
+#         )
+#     userinfo = token.get('userinfo')
+#     if userinfo:
+#         request.session['user'] = dict(userinfo)
+
+#     request.session['google_token'] = token
+#     return RedirectResponse('get_youtube_data')
+
+
 @app.get('/auth')
-async def auth(request: Request):
+async def auth(request: Request, db: Session = Depends(get_db)):
     try:
         token = await oauth.google.authorize_access_token(request)
     except OAuthError as e:
@@ -93,12 +112,30 @@ async def auth(request: Request):
             name='error.html',
             context={'request': request, 'error': e.error}
         )
-    userinfo = token.get('userinfo')
-    if userinfo:
-        request.session['user'] = dict(userinfo)
 
-    # Also store the actual token
+    userinfo = token.get('userinfo')
+    if not userinfo:
+        return RedirectResponse('/')
+
+    email = userinfo.get('email')
+    name = userinfo.get('name', "Anonymous User")
+
+    # Check if the user already exists in the DB
+    db_user = db.query(Onlyuser).filter(Onlyuser.global_user == email).first()
+
+    if not db_user:
+        new_user = Onlyuser(user_id=str(uuid.uuid4()), global_user=email, name=name)
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        user_id = new_user.user_id
+    else:
+        user_id = db_user.user_id
+
+    # Store UUID in the session instead of eTag
+    request.session['user'] = {"email": email, "name": name, "user_id": str(user_id)}
     request.session['google_token'] = token
+
     return RedirectResponse('get_youtube_data')
 
 
@@ -250,12 +287,86 @@ def send_friend_request(request: FriendRequestCreate, db: Session = Depends(get_
     return {"message": f"Friend request sent from {request.sender_id} to {request.receiver_id}"}
 
 
+# @app.get('/get_youtube_data')
+# def get_youtube_data(request: Request, db: Session = Depends(get_db)):
+#     # 1) Check that user is logged in
+#     user = request.session.get('user')
+#     if not user:
+#         return RedirectResponse('/login')
+    
+#     # 2) Retrieve token from session
+#     token = request.session.get('google_token')
+#     if not token:
+#         return {"error": "No token found; user has not granted YouTube access"}
+
+#     # 3) Convert session token to Credentials
+#     creds = Credentials(
+#         token['access_token'],
+#         refresh_token=token.get('refresh_token'),
+#         token_uri='https://oauth2.googleapis.com/token',
+#         client_id=CLIENT_ID,
+#         client_secret=CLIENT_SECRET,
+#         scopes=['https://www.googleapis.com/auth/youtube.readonly']
+#     )
+
+#     # 4) Use credentials to build the YouTube client
+#     youtube = googleapiclient.discovery.build(
+#         "youtube", "v3", credentials=creds
+#     )
+
+#     # 5) Now you can call your get_user_info, get_subscriptions, etc.
+#     user_info = get_user_info(youtube)
+#     etag = user_info.get('etag')
+#     request.session['etag'] = etag
+    
+#     try:
+#         name=user_info.get('items')[0].get('snippet').get('title')
+#     except:
+#         name = f'Anon_{etag}'
+
+#     subscriptions = get_subscriptions(youtube, max_results=50000)
+
+#     for item in subscriptions:
+#         channel_name = item["title"]
+#         channel_id = item["channelId"]
+        
+#         db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
+#         if db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first():
+#             continue
+#         db.add(db_subscription)
+
+#         db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
+#         # if db.query(models.User).filter(models.User.user_id == channel_id).first():
+#         #     continue
+#         db.add(db_user)
+
+#     db.commit()
+#     with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
+#         json.dump(subscriptions, json_file, indent=4)
+    
+#     user = request.session.get('user')
+
+#     numbered_titles = []
+#     if os.path.exists('recommendations.npy'):
+#         numbered_titles = np.load('recommendations.npy', allow_pickle=True)
+
+#     return templates.TemplateResponse(
+#         name='recommendation.html',
+#         context={'request': request, 'user': user, 'recommendations': numbered_titles}
+#         )
+
 @app.get('/get_youtube_data')
 def get_youtube_data(request: Request, db: Session = Depends(get_db)):
-    # 1) Check that user is logged in
     user = request.session.get('user')
     if not user:
         return RedirectResponse('/login')
+    
+    user_id = user.get("user_id")  # Get UUID from session
+
+    if not user_id:
+        return {"error": "User not authenticated"}
+
+    user = request.session.get('user')
     
     # 2) Retrieve token from session
     token = request.session.get('google_token')
@@ -276,35 +387,29 @@ def get_youtube_data(request: Request, db: Session = Depends(get_db)):
     youtube = googleapiclient.discovery.build(
         "youtube", "v3", credentials=creds
     )
-
-    # 5) Now you can call your get_user_info, get_subscriptions, etc.
-    user_info = get_user_info(youtube)
-    etag = user_info.get('etag')
-    request.session['etag'] = etag
-    
-    try:
-        name=user_info.get('items')[0].get('snippet').get('title')
-    except:
-        name = f'Anon_{etag}'
-
     subscriptions = get_subscriptions(youtube, max_results=50000)
 
     for item in subscriptions:
         channel_name = item["title"]
         channel_id = item["channelId"]
-        
-        db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
-        if db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first():
-            continue
-        db.add(db_subscription)
 
-        db_user = models.User(user_id=user_info.get('etag'), subscription=channel_id)
-        # if db.query(models.User).filter(models.User.user_id == channel_id).first():
-        #     continue
-        db.add(db_user)
+        db_subscription = db.query(models.Subscriptions).filter(models.Subscriptions.id == channel_id).first()
+        if not db_subscription:
+            db_subscription = models.Subscriptions(id=channel_id, title=channel_name, description=item["description"])
+            db.add(db_subscription)
+
+        # Check if the user is already subscribed to this channel
+        existing_user_subscription = db.query(models.User).filter(
+            models.User.user_id == user_id,
+            models.User.subscription == channel_id
+        ).first()
+
+        if not existing_user_subscription:
+            db_user = models.User(user_id=user_id, subscription=channel_id)
+            db.add(db_user)
 
     db.commit()
-    with open(f"youtube_subscriptions_{user_info.get('etag')}.json", 'w') as json_file:
+    with open(f"youtube_subscriptions_{user_id}.json", 'w') as json_file:
         json.dump(subscriptions, json_file, indent=4)
     
     user = request.session.get('user')
@@ -317,6 +422,8 @@ def get_youtube_data(request: Request, db: Session = Depends(get_db)):
         name='recommendation.html',
         context={'request': request, 'user': user, 'recommendations': numbered_titles}
         )
+    # return {"message": "YouTube data retrieved successfully"}
+
 
 # @app.get("/summarize")
 def retrive_summarize_from_doc(request: Request, db: Session = Depends(get_db)):
@@ -359,11 +466,12 @@ def visualize_dictionary(request: Request, db: Session = Depends(get_db)):
     categories_arr = db.query(models.ComputedPreferences.preference, models.ComputedPreferences.weight).filter(models.ComputedPreferences.user_id==etag)
     categories = dict(categories_arr)
 
-    # categories = {}
     if len(categories) == 0:    
         with open(f'youtube_subscriptions_{etag}.json', 'r') as f:
             subscriptions = json.load(f)
+        
         categories = get_categories(subscriptions)
+
         with open(f'categories_{etag}.json', 'w') as json_file:
             json.dump(categories, json_file, indent=4)
         total_channels = sum(categories.values())
@@ -402,22 +510,20 @@ async def retrieve_analysis(request: Request, db: Session = Depends(get_db)):
             context={'request': request, 'user': user, 'categories': top_categories, 'summary': summary}
         )
 
-
 def get_random_subscriptions(db: Session, limit: int = 5):
     return db.query(models.Subscriptions).order_by(func.random()).limit(limit).all()
-
 
 @app.get("/get_recommendations")
 async def recommendations(request: Request, db: Session = Depends(get_db)):
     etag = request.session.get('etag')
     user = request.session.get('user')
 
-    if os.path.exists('recommendations.npy'):
-        numbered_titles = np.load('recommendations.npy', allow_pickle=True)
-        return templates.TemplateResponse(
-            name='recommendation.html',
-            context={'request': request, 'user': user, 'recommendations': numbered_titles}
-        )
+    # if os.path.exists('recommendations.npy'):
+    #     numbered_titles = np.load('recommendations.npy', allow_pickle=True)
+    #     return templates.TemplateResponse(
+    #         name='recommendation.html',
+    #         context={'request': request, 'user': user, 'recommendations': numbered_titles}
+    #     )
 
     if not etag:
         etag = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
@@ -425,14 +531,14 @@ async def recommendations(request: Request, db: Session = Depends(get_db)):
         if not etag:
             return {"error": "User not authenticated"}
     
-    random_subscriptions = get_random_subscriptions(db, limit=20)
+    random_subscriptions = get_random_subscriptions(db, limit=5)
     titles = []
     for sub in random_subscriptions:
-        info = get_most_popular_videos(sub.id, sub.title, max_results=1)
+        info = get_random_videos(sub.id, sub.title, max_results=1)
         titles.extend(info)
     numbered_titles = [(i+1, title, link, channel, thumbnail) for i, (title, link, channel, thumbnail) in enumerate(titles)]
 
-    np.save('recommendations.npy', numbered_titles)
+    # np.save('recommendations.npy', numbered_titles)
 
     return templates.TemplateResponse(
         name='recommendation.html',
