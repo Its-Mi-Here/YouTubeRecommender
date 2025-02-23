@@ -1,12 +1,9 @@
 from openai import OpenAI
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 load_dotenv()
 client = OpenAI()
-
-import json
-import ast
-from tqdm import tqdm
 
 categories = [
     "Film & Animation", "Autos & Vehicles", "Music", "Pets & Animals", "Sports", "Short Movies",
@@ -29,7 +26,6 @@ def get_categories(subscriptions):
     Categories: {', '.join(categories)}
 
     Description: "{text}"
-
     Respond only with 2 category names separated by a comma.
     """
 
@@ -41,9 +37,6 @@ def get_categories(subscriptions):
         {"role": "user", "content": f"{prompt}"},
       ]
     )
-    # categories.update(response.choices[0].text.strip().split(', '))
-    # print(f"content: {response.choices[0].message.content}")
-    print(response.choices[0].message.content)
     category = response.choices[0].message.content
     category_1 = category.split(",")[0]
     category_2 = category.split(",")[1]
@@ -66,6 +59,3 @@ def get_categories(subscriptions):
     except:
         continue
   return categories_dict
-    
-#   print(f"categories: {categories}")
-
