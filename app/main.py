@@ -144,8 +144,6 @@ class OnlyuserResponse(BaseModel):
 class FriendRequestCreate(BaseModel):
     sender_id: str
     receiver_id: str
-    sender_name: str
-    receiver_name: str
 
 class FriendRequestResponse(BaseModel):
     id: int

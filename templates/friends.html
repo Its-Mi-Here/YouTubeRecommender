@@ -313,7 +313,7 @@
         }
 
         async function sendFriendRequest(receiverId) {
-            const senderId = "{{ user_id }}";
+            const senderId = "{{ user.user_id }}";
             const response = await fetch('/send-friend-request/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
