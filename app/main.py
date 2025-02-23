@@ -15,6 +15,7 @@ from app.visualize import get_categories
 
 from google.oauth2.credentials import Credentials
 import app.models as models
+from app.models import Subscriptions, Friendship, User
 from app.database import SessionLocal, engine
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
@@ -487,6 +488,55 @@ async def retrieve_analysis(request: Request, db: Session = Depends(get_db)):
 def get_random_subscriptions(db: Session, limit: int = 5):
     return db.query(models.Subscriptions).order_by(func.random()).limit(limit).all()
 
+# from sqlalchemy.orm import Session
+# from sqlalchemy.sql import func
+
+def get_random_friend_subscriptions(db: Session, user_id: str, limit: int = 5):
+    """
+    Retrieves a list of random subscriptions from the user's friends.
+
+    Args:
+        db (Session): SQLAlchemy Session object.
+        user_id (str): User ID of the user whose friends' subscriptions to retrieve.
+        limit (int): Number of subscriptions to retrieve. Defaults to 5.
+
+    Returns:
+        List of random subscriptions from the user's friends.
+    """
+    # Step 1: Get user's own subscriptions
+    own_subscriptions_query = (
+        db.query(User.subscription)
+        .filter(User.user_id == user_id)
+    )
+
+    # Step 2: Get user's friends' IDs
+    friend_ids_query = (
+        db.query(Friendship.user1_id)
+        .filter(Friendship.user2_id == user_id)
+        .union(
+            db.query(Friendship.user2_id)
+            .filter(Friendship.user1_id == user_id)
+        )
+    )
+
+    # Step 3: Get subscriptions of friends
+    friend_subscriptions_query = (
+        db.query(User.subscription)
+        .filter(User.user_id.in_(friend_ids_query))
+    )
+
+    # Step 4: Combine both own and friends' subscriptions
+    combined_subscriptions_query = (
+        db.query(Subscriptions)
+        .filter(Subscriptions.id.in_(own_subscriptions_query.union(friend_subscriptions_query)))
+        .order_by(func.random())  # Randomize order
+        .limit(limit)  # Limit the number of results
+    )
+
+    return combined_subscriptions_query.all()
+
+
+
 @app.get("/get_recommendations")
 async def recommendations(request: Request, db: Session = Depends(get_db)):
     etag = request.session.get('etag')
@@ -505,7 +555,7 @@ async def recommendations(request: Request, db: Session = Depends(get_db)):
         if not user:
             return {"error": "User not authenticated"}
     
-    random_subscriptions = get_random_subscriptions(db, limit=5)
+    random_subscriptions = get_random_friend_subscriptions(db, user['user_id'], limit=5)
     titles = []
     for sub in random_subscriptions:
         info = get_random_videos(sub.id, sub.title, max_results=1)
