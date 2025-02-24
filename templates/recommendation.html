@@ -311,7 +311,7 @@
 
         <!-- Recommendations List -->
         <div class="recommendations-container">
-            {% for index, title, link, channel, thumbnail in recommendations %}
+            {% for title, link, channel, thumbnail in recommendations %}
                 <div class="recommendation-item">
                     <a href="{{ link }}" target="_blank">
                         <img class="thumbnail" src="{{ thumbnail }}" alt="Video Thumbnail">

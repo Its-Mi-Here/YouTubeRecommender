@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
@@ -22,7 +22,7 @@ from sqlalchemy.sql.expression import func
 from sqlalchemy import delete
 
 
-from app.models import FriendRequest, Friendship, Onlyuser
+from app.models import FriendRequest, Friendship, Onlyuser, CachedRecommendations
 from pydantic import BaseModel
 from typing import List
 import datetime as _dt
@@ -52,6 +52,9 @@ oauth.register(
 )
 templates = Jinja2Templates(directory="templates")
 
+
+MAX_RECOMMENDATIONS = 100  # Store max 100 recommendations
+MIN_RECOMMENDATIONS_BEFORE_REFRESH = 30  # Refresh when only 20 remain
 
 def get_db():
     db = SessionLocal()
@@ -533,36 +536,91 @@ def get_random_friend_subscriptions(db: Session, user_id: str, limit: int = 5):
 
     return combined_subscriptions_query.all()
 
+async def regenerate_recommendations(db: Session, user_id: str, limit=50, per_channel_limit=1):
+    """
+    Generates a new set of recommendations when old recommendations run low.
+    """
+    print(f"Starting background task for user {user_id}...")
 
+    # Generate new recommendations
+    random_subscriptions = get_random_friend_subscriptions(db, user_id, limit=limit)
+    titles = []
+    for sub in random_subscriptions:
+        try:
+            info = get_random_videos(sub.id, sub.title, max_results=per_channel_limit)
+            titles.extend(info)
+        except Exception as e:
+            print(f"Couldn't get videos from {sub.title}: {e}")
+
+    # Store the new recommendations in the database
+    for title, link, channel, thumbnail in titles[:MAX_RECOMMENDATIONS]:
+        new_rec = CachedRecommendations(
+            user_id=user_id,
+            recommendation=json.dumps((title, link, channel, thumbnail)),
+            timestamp=datetime.utcnow()
+        )
+        db.add(new_rec)
+
+    db.commit()
+    print(f"Completed background task for user {user_id}!")
 
 @app.get("/get_recommendations")
-async def recommendations(request: Request, db: Session = Depends(get_db)):
-    etag = request.session.get('etag')
+async def recommendations(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db), count: int = 10):
+
     user = request.session.get('user')
 
-    # if os.path.exists('recommendations.npy'):
-    #     numbered_titles = np.load('recommendations.npy', allow_pickle=True)
-    #     return templates.TemplateResponse(
-    #         name='recommendation.html',
-    #         context={'request': request, 'user': user, 'recommendations': numbered_titles}
-    #     )
-
     if not user:
-        user = db.query(models.Onlyuser.user_id).filter(models.Onlyuser.global_user == request.session['user']['email']).first()
-        user = user[0]
+        user = db.query(User.user_id).filter(User.global_user == request.session['user']['email']).first()
         if not user:
             return {"error": "User not authenticated"}
     
-    random_subscriptions = get_random_friend_subscriptions(db, user['user_id'], limit=5)
-    titles = []
-    for sub in random_subscriptions:
-        info = get_random_videos(sub.id, sub.title, max_results=1)
-        titles.extend(info)
-    numbered_titles = [(i+1, title, link, channel, thumbnail) for i, (title, link, channel, thumbnail) in enumerate(titles)]
+    # user_id = str(user.user_id)
+    user_id = user['user_id']
+
+    # Step 1: Retrieve the requested number of recommendations
+    cached_recommendations = (
+        db.query(CachedRecommendations)
+        .filter(CachedRecommendations.user_id == user_id)
+        .order_by(CachedRecommendations.timestamp)
+        .limit(count)
+        .all()
+    )
+    print(f"cached_recommendations: {cached_recommendations}")
+
+    if not cached_recommendations or len(cached_recommendations) < count:
+        regenerate_recommendations(db, user_id, limit=count)
+        cached_recommendations = (
+                db.query(CachedRecommendations)
+                .filter(CachedRecommendations.user_id == user_id)
+                .order_by(CachedRecommendations.timestamp)
+                .limit(count)
+                .all()
+            )
+        # return {"error": "No recommendations available"}
+
+    # Convert recommendations to list format
+    recommendations = [json.loads(rec.recommendation) for rec in cached_recommendations]
+
+    # Step 2: Delete the retrieved recommendations
+    for rec in cached_recommendations:
+        db.delete(rec)
+
+    db.commit()
+
+    # Step 3: Check if the remaining recommendations are below the threshold
+    remaining_count = (
+        db.query(CachedRecommendations)
+        .filter(CachedRecommendations.user_id == user_id)
+        .count()
+    )
+
+    if remaining_count <= MIN_RECOMMENDATIONS_BEFORE_REFRESH:
+        print(f"Regenerating recommendations for {user_id} in background...")
+        background_tasks.add_task(regenerate_recommendations, db, user_id, limit=30)
 
     return templates.TemplateResponse(
         name='recommendation.html',
-        context={'request': request, 'user': user, 'recommendations': numbered_titles}
+        context={'request': request, 'user': user, 'recommendations': recommendations}
     )
 
 def get_channel_recommendation(request: Request, db: Session = Depends(get_db)):
