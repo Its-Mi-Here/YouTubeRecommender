@@ -5,8 +5,8 @@ A YouTube video Recommender system that recommends you videos on the behalf of y
 My reasons of creating this -
 
 1. The best recommendations are word-of-mouth from your personal connections - friends.
-2. 70% of What Viewers Watch is Recommended by the YouTube Algorithm. The main objective of this algorithm is engagement. If you are like me and enjoy 3 hour technical lectures, old-school comedy shows and don't want to get stuck watching shorts, this platform is for you.
-3. The YouTube Algorithm heavily considers your recent activity and trending videos, instead of your long-term interests. But, knowledge and (some) entertainment is Ageless!
+2. 70% of What Viewers Watch is recommended by the YouTube Recommendation Algorithm. If you enjoy 3-hour technical lectures, old-school comedy shows, and want to explore what you used to like and what your friends like watching, this platform is for you.
+3. The YouTube Algorithm heavily considers your recent activity and trending videos. But, knowledge and (some) entertainment is Ageless!
 4. It uses collaborative filtering that recommends you what random like-minded people liked and watched. Here I am proposing a Social-network based filtering that serves you videos as if your friend is texting your "Hey, watch this!". Hence the name "He bagh!," which is Marathi for "watch this".
 
 ## Features
